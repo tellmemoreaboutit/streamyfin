@@ -6,7 +6,9 @@ on:
 jobs:
   build:
     runs-on: macos-15-intel
-    timeout-minutes: 90
+    timeout-minutes: 120
+    env:
+      EXPO_TV: 0
     steps:
       - uses: actions/checkout@v4
 
@@ -15,16 +17,21 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.4"
+
+      - name: Install Metal toolchain
+        run: bash scripts/ios/install-metal-toolchain.sh
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
       - name: Prebuild iOS project
-        env:
-          EXPO_TV: 0
         run: bunx expo prebuild -p ios --clean
 
       - name: Install pods
@@ -32,9 +39,11 @@ jobs:
 
       - name: Archive without signing
         run: |
-          set -o pipefail
+          mkdir -p build
+          xcodebuild -version
           WORKSPACE=$(ls -d ios/*.xcworkspace | head -n1)
           SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          set +e
           xcodebuild archive \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
@@ -42,7 +51,17 @@ jobs:
             -sdk iphoneos \
             -archivePath build/app.xcarchive \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            | tail -n 50
+            > build/xcodebuild.log 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            echo "=== error lines ==="
+            grep -n "error:" build/xcodebuild.log | head -100
+            echo "=== failing script phases ==="
+            grep -n -B2 -A60 "Run script build phase\|PhaseScriptExecution" build/xcodebuild.log | grep -v "^--$" | tail -300
+            echo "=== last 150 lines ==="
+            tail -n 150 build/xcodebuild.log
+          fi
+          exit $status
 
       - name: Package IPA
         run: |
@@ -55,3 +74,10 @@ jobs:
           name: streamyfin-slowmo-unsigned-ipa
           path: Streamyfin-unsigned.ipa
           retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: xcodebuild-log
+          path: build/xcodebuild.log
+          retention-days: 7
