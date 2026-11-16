@@ -42,6 +42,16 @@ export const PluginSettings = () => {
         showArrow
       />
       <ListItem
+        onPress={() => router.push("/settings/plugins/slowmo/page")}
+        title={t("slowmo.title")}
+        showArrow
+      />
+      <ListItem
+        onPress={() => router.push("/settings/plugins/slowmo/jobs/page")}
+        title={t("slowmo.jobs_title")}
+        showArrow
+      />
+      <ListItem
         onPress={() => router.push("/settings/plugins/kefinTweaks/page")}
         title='KefinTweaks'
         showArrow

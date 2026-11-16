@@ -3,13 +3,16 @@ import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
 import { type FC, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Platform, TouchableOpacity, View } from "react-native";
+import type { SharedValue } from "react-native-reanimated";
 import useRouter from "@/hooks/useAppRouter";
 import { useControlsSafeAreaInsets } from "@/hooks/useControlsSafeAreaInsets";
 import { useHaptic } from "@/hooks/useHaptic";
 import { useOrientation } from "@/hooks/useOrientation";
 import { OrientationLock } from "@/packages/expo-screen-orientation";
+import { useSettings } from "@/utils/atoms/settings";
 import { HEADER_LAYOUT, ICON_SIZES } from "./constants";
 import DropdownView from "./dropdown/DropdownView";
+import { SlowmoControl } from "./SlowmoControl";
 import { PlaybackSpeedScope } from "./utils/playback-speed-settings";
 import { shouldShowPlayerMenu } from "./utils/shouldShowPlayerMenu";
 import { type AspectRatio } from "./VideoScalingModeSelector";
@@ -36,6 +39,8 @@ interface HeaderControlsProps {
   showTechnicalInfo?: boolean;
   onToggleTechnicalInfo?: () => void;
   onOpenSubtitleScale?: () => void;
+  // Playback position in milliseconds
+  progress?: SharedValue<number>;
 }
 
 export const HeaderControls: FC<HeaderControlsProps> = ({
@@ -57,6 +62,7 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
   showTechnicalInfo = false,
   onToggleTechnicalInfo,
   onOpenSubtitleScale,
+  progress,
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -64,6 +70,7 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
   const lightHapticFeedback = useHaptic("light");
   const { orientation, lockOrientation } = useOrientation();
   const [isTogglingOrientation, setIsTogglingOrientation] = useState(false);
+  const { settings } = useSettings();
 
   const onClose = async () => {
     lightHapticFeedback();
@@ -119,6 +126,7 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
               showTechnicalInfo={showTechnicalInfo}
               onToggleTechnicalInfo={onToggleTechnicalInfo}
               onOpenSubtitleScale={onOpenSubtitleScale}
+              progress={progress}
             />
           </View>
         )}
@@ -142,6 +150,9 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
               style={{ opacity: isTogglingOrientation ? 0.5 : 1 }}
             />
           </TouchableOpacity>
+        )}
+        {!!settings.slowmoServerUrl && !!progress && (
+          <SlowmoControl item={item} progress={progress} />
         )}
         {!Platform.isTV && startPictureInPicture && (
           <TouchableOpacity

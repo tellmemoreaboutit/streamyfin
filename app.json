@@ -31,9 +31,6 @@
         "usesNonExemptEncryption": false
       },
       "supportsTablet": true,
-      "entitlements": {
-        "com.apple.developer.networking.wifi-info": true
-      },
       "bundleIdentifier": "com.fredrikburmester.streamyfin",
       "icon": "./assets/images/icon-ios-liquid-glass.icon",
       "appleTeamId": "MWD5K362T8"
@@ -180,7 +177,6 @@
       ["./plugins/withCastFrameworkVersion.ts"],
       ["./plugins/withTVOSAppIcon.ts"],
       ["./plugins/withTVOSTopShelf.ts"],
-      ["./plugins/withDownloadLiveActivity.ts"],
       ["./plugins/withTVXcodeEnv.ts"],
       [
         "./plugins/withGitPod.ts",

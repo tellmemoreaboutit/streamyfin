@@ -18,6 +18,7 @@ import { Platform } from "react-native";
 import { GlobalModal } from "@/components/GlobalModal";
 import { OfflineProgressSync } from "@/components/OfflineProgressSync";
 import { PendingAccountSaveModal } from "@/components/PendingAccountSaveModal";
+import { SlowmoNotifier } from "@/components/SlowmoNotifier";
 import { SeerrAutoLogin } from "@/components/seerr/SeerrAutoLogin";
 import { SyncPlayPlaybackBridge } from "@/components/syncplay/SyncPlayPlaybackBridge";
 import { ActionSheetInsets } from "@/hooks/useActionSheet";
@@ -492,6 +493,7 @@ function Layout() {
                                       )}
                                       <SeerrAutoLogin />
                                       <OfflineProgressSync />
+                                      <SlowmoNotifier />
                                     </ThemeProvider>
                                   </IntroSheetProvider>
                                 </BottomSheetModalProvider>

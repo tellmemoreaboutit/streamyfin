@@ -4,10 +4,13 @@ import {
   type BottomSheetBackdropProps,
   BottomSheetModal,
 } from "@gorhom/bottom-sheet";
+import type { MediaSourceInfo } from "@jellyfin/sdk/lib/generated-client/models";
+import { useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Alert,
   Modal,
   Platform,
   Pressable,
@@ -17,7 +20,8 @@ import {
 } from "react-native";
 import { Slider } from "react-native-awesome-slider";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useSharedValue } from "react-native-reanimated";
+import { type SharedValue, useSharedValue } from "react-native-reanimated";
+import { toast } from "sonner-native";
 import { Text } from "@/components/common/Text";
 import { Stepper } from "@/components/inputs/Stepper";
 import {
@@ -26,10 +30,20 @@ import {
 } from "@/components/PlatformDropdown";
 import { PLAYBACK_SPEEDS } from "@/components/PlaybackSpeedSelector";
 import useRouter from "@/hooks/useAppRouter";
+import { useItemQuery } from "@/hooks/useItemQuery";
 import { useOfflineMode } from "@/providers/OfflineModeProvider";
 import { useSettings } from "@/utils/atoms/settings";
 import { playerQualityOptions } from "@/utils/bitrate";
 import { resolveRouteTrackIndexes } from "@/utils/directPlayer/routeTrackIndexes";
+import {
+  createSlowmoJob,
+  deleteSlowmoVersion,
+  getSlowmoJobs,
+  isSlowmoSource,
+  mapPositionBetweenVersions,
+  SLOWMO_FACTORS,
+  slowmoLabel,
+} from "@/utils/slowmo";
 import { usePlayerContext } from "../contexts/PlayerContext";
 import { useVideoContext } from "../contexts/VideoContext";
 import { PlaybackSpeedScope } from "../utils/playback-speed-settings";
@@ -215,6 +229,8 @@ interface DropdownViewProps {
   showTechnicalInfo?: boolean;
   onToggleTechnicalInfo?: () => void;
   onOpenSubtitleScale?: () => void;
+  // Playback position in milliseconds
+  progress?: SharedValue<number>;
 }
 
 const DropdownView = ({
@@ -225,12 +241,14 @@ const DropdownView = ({
   showTechnicalInfo = false,
   onToggleTechnicalInfo,
   onOpenSubtitleScale,
+  progress: positionMs,
 }: DropdownViewProps) => {
   const { subtitleTracks, audioTracks } = useVideoContext();
   const { item, mediaSource, downloadedItem } = usePlayerContext();
   const { settings, pluginSettings } = useSettings();
   const subtitleScaleModalRef = useRef<BottomSheetModal>(null);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isOffline = useOfflineMode();
   const { t } = useTranslation();
 
@@ -274,6 +292,80 @@ const DropdownView = ({
       router.replace(`player/direct-player?${queryParams}` as any);
     },
     [audioIndex, subtitleIndex, router],
+  );
+
+  // Fresh MediaSources (with Path) of the movie, for the Slowmo versions list
+  const { data: versions, refetch: refetchVersions } = useItemQuery(
+    item.Id,
+    isOffline,
+    undefined,
+    [],
+    { staleTime: 0 },
+  );
+
+  // Same route swap as changeBitrate, with the live position (ms -> ticks)
+  const switchSource = useCallback(
+    async (source: MediaSourceInfo) => {
+      if (source.Id === mediaSourceIdRef.current) return;
+      // Slowmo versions have another timeline: map the position through the
+      // job that made them; without the server the position is kept.
+      let seconds = positionMs ? positionMs.value / 1000 : null;
+      if (seconds !== null) {
+        try {
+          const jobs = await getSlowmoJobs(settings);
+          seconds = mapPositionBetweenVersions(
+            seconds,
+            {
+              path: mediaSource?.Path,
+              slowmo: !!mediaSource && isSlowmoSource(mediaSource),
+            },
+            { path: source.Path, slowmo: isSlowmoSource(source) },
+            jobs,
+          );
+        } catch {}
+      }
+      const queryParams = new URLSearchParams({
+        itemId: itemIdRef.current ?? "",
+        audioIndex: audioIndex?.toString() ?? "",
+        subtitleIndex: subtitleIndex?.toString() ?? "",
+        mediaSourceId: source.Id ?? "",
+        bitrateValue: bitrateValue?.toString() ?? "",
+        playbackPosition:
+          seconds !== null
+            ? Math.round(seconds * 10000000).toString()
+            : playbackPositionRef.current,
+      }).toString();
+      router.replace(`player/direct-player?${queryParams}` as any);
+    },
+    [
+      audioIndex,
+      subtitleIndex,
+      bitrateValue,
+      positionMs,
+      router,
+      settings,
+      mediaSource,
+    ],
+  );
+
+  // Only ever called with slowmo sources
+  const confirmDelete = useCallback(
+    (source: MediaSourceInfo) => {
+      if (!source.Path || !isSlowmoSource(source)) return;
+      const path = source.Path;
+      Alert.alert(t("slowmo.delete_confirm"), slowmoLabel(source), [
+        { text: t("slowmo.cancel"), style: "cancel" },
+        {
+          text: t("slowmo.delete"),
+          style: "destructive",
+          onPress: () =>
+            deleteSlowmoVersion(settings, path)
+              .then(() => refetchVersions())
+              .catch((e) => toast.error(`${t("slowmo.failed")}: ${e.message}`)),
+        },
+      ]);
+    },
+    [settings, t, refetchVersions],
   );
 
   // Create stable identifiers for tracks
@@ -400,6 +492,52 @@ const DropdownView = ({
       });
     }
 
+    // Slowmo: whole movie, and the versions of this movie
+    const slowmoItemId = item?.Id;
+    if (settings.slowmoServerUrl && slowmoItemId) {
+      groups.push({
+        title: t("slowmo.whole_movie"),
+        options: SLOWMO_FACTORS.map((factor) => ({
+          type: "action" as const,
+          label: `x${factor}`,
+          onPress: () =>
+            createSlowmoJob(settings, {
+              itemId: slowmoItemId,
+              segments: [],
+              factor,
+            })
+              .then(() => {
+                toast.success(t("slowmo.queued"));
+                queryClient.invalidateQueries({ queryKey: ["slowmo-jobs"] });
+              })
+              .catch((e) => toast.error(`${t("slowmo.failed")}: ${e.message}`)),
+        })),
+      });
+      const sources = versions?.MediaSources ?? [];
+      const slowmoSources = sources.filter(isSlowmoSource);
+      if (slowmoSources.length > 0) {
+        groups.push({
+          title: t("slowmo.versions"),
+          options: [
+            ...sources.map((source) => ({
+              type: "radio" as const,
+              label: isSlowmoSource(source)
+                ? slowmoLabel(source)
+                : t("slowmo.original"),
+              value: source.Id ?? "",
+              selected: source.Id === mediaSource?.Id,
+              onPress: () => switchSource(source),
+            })),
+            ...slowmoSources.map((source) => ({
+              type: "action" as const,
+              label: `${t("slowmo.delete")} ${slowmoLabel(source)}`,
+              onPress: () => confirmDelete(source),
+            })),
+          ],
+        });
+      }
+    }
+
     // Technical Info (at bottom)
     if (onToggleTechnicalInfo) {
       groups.push({
@@ -422,6 +560,14 @@ const DropdownView = ({
     isOffline,
     bitrateValue,
     settings.defaultBitrate,
+    settings.slowmoServerUrl,
+    settings.slowmoToken,
+    item?.Id,
+    versions,
+    mediaSource?.Id,
+    switchSource,
+    confirmDelete,
+    queryClient,
     changeBitrate,
     subtitleTracksKey,
     audioTracksKey,

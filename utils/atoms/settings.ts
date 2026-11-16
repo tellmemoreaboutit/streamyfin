@@ -425,6 +425,9 @@ export type Settings = {
   /** Video player backend. Defaults to MPV when unset (see getActiveVideoPlayer). */
   videoPlayer?: VideoPlayer;
   marlinServerUrl?: string;
+  /** Slowmo (RIFE) service base URL and optional token. */
+  slowmoServerUrl?: string;
+  slowmoToken?: string;
   streamyStatsServerUrl?: string;
   streamyStatsMovieRecommendations?: boolean;
   streamyStatsSeriesRecommendations?: boolean;
@@ -642,6 +645,8 @@ export const defaultValues: Settings = {
   // videoPlayer intentionally undefined — resolved at runtime via
   // getActiveVideoPlayer() so existing installs are unaffected.
   marlinServerUrl: "",
+  slowmoServerUrl: "",
+  slowmoToken: "",
   streamyStatsServerUrl: "",
   streamyStatsMovieRecommendations: false,
   streamyStatsSeriesRecommendations: false,

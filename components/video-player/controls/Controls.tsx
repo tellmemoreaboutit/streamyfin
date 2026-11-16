@@ -842,6 +842,7 @@ export const Controls: FC<Props> = ({
               showTechnicalInfo={showTechnicalInfo}
               onToggleTechnicalInfo={onToggleTechnicalInfo}
               onOpenSubtitleScale={openSubtitleScale}
+              progress={progress}
             />
           </Animated.View>
           <Animated.View
