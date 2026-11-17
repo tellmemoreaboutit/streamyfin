@@ -1,3 +1,4 @@
+import { Image as ExpoImage } from "expo-image";
 import type { FC } from "react";
 import { View } from "react-native";
 import { Image } from "@/components/common/ServerImage";
@@ -23,6 +24,8 @@ interface TrickplayBubbleProps {
       TileHeight?: number;
     };
   } | null;
+  /** On-device frame, used when there is no trickplay sprite. */
+  scrubFrame?: { uri: string | null; aspectRatio: number } | null;
   time: {
     hours: number;
     minutes: number;
@@ -37,17 +40,20 @@ interface TrickplayBubbleProps {
 export const TrickplayBubble: FC<TrickplayBubbleProps> = ({
   trickPlayUrl,
   trickplayInfo,
+  scrubFrame,
   time,
   imageScale = 1,
   chapterName,
 }) => {
-  if (!trickPlayUrl || !trickplayInfo) {
+  const sprite =
+    trickPlayUrl && trickplayInfo ? { trickPlayUrl, trickplayInfo } : null;
+  if (!sprite && !scrubFrame) {
     return null;
   }
 
-  const { x, y, url } = trickPlayUrl;
   const tileWidth = CONTROLS_CONSTANTS.TILE_WIDTH;
-  const tileHeight = tileWidth / trickplayInfo.aspectRatio!;
+  const tileHeight =
+    tileWidth / (sprite?.trickplayInfo.aspectRatio ?? scrubFrame!.aspectRatio);
   const timeStr = `${time.hours > 0 ? `${time.hours}:` : ""}${
     time.minutes < 10 ? `0${time.minutes}` : time.minutes
   }:${time.seconds < 10 ? `0${time.seconds}` : time.seconds}`;
@@ -84,21 +90,30 @@ export const TrickplayBubble: FC<TrickplayBubbleProps> = ({
         }}
         className='bg-black/80 overflow-hidden'
       >
-        <Image
-          cachePolicy='memory-disk'
-          style={{
-            width: tileWidth * (trickplayInfo.data.TileWidth ?? 1),
-            height:
-              (tileWidth / (trickplayInfo.aspectRatio ?? 1)) *
-              (trickplayInfo.data.TileHeight ?? 1),
-            transform: [
-              { translateX: -x * tileWidth },
-              { translateY: -y * tileHeight },
-            ],
-          }}
-          source={{ uri: url }}
-          contentFit='cover'
-        />
+        {sprite ? (
+          <Image
+            cachePolicy='memory-disk'
+            style={{
+              width: tileWidth * (sprite.trickplayInfo.data.TileWidth ?? 1),
+              height:
+                (tileWidth / (sprite.trickplayInfo.aspectRatio ?? 1)) *
+                (sprite.trickplayInfo.data.TileHeight ?? 1),
+              transform: [
+                { translateX: -sprite.trickPlayUrl.x * tileWidth },
+                { translateY: -sprite.trickPlayUrl.y * tileHeight },
+              ],
+            }}
+            source={{ uri: sprite.trickPlayUrl.url }}
+            contentFit='cover'
+          />
+        ) : scrubFrame?.uri ? (
+          // Local file: plain expo-image, no server headers needed.
+          <ExpoImage
+            style={{ width: tileWidth, height: tileHeight }}
+            source={{ uri: scrubFrame.uri }}
+            contentFit='cover'
+          />
+        ) : null}
       </View>
       {/* Chapter and time under the thumbnail, as in the native bubble */}
       {chapterName ? (

@@ -63,6 +63,8 @@ interface BottomControlsProps {
       TileHeight?: number;
     };
   } | null;
+  /** On-device frame used when there is no trickplay, see useTrickplay. */
+  scrubFrame?: { uri: string | null; aspectRatio: number } | null;
   time: {
     hours: number;
     minutes: number;
@@ -103,6 +105,7 @@ export const BottomControls: FC<BottomControlsProps> = ({
   seekTo,
   trickPlayUrl,
   trickplayInfo,
+  scrubFrame,
   time,
   progress,
   surfaceScrubbing = false,
@@ -247,6 +250,7 @@ export const BottomControls: FC<BottomControlsProps> = ({
                 trackWidth={trackWidth}
                 trickPlayUrl={trickPlayUrl}
                 trickplayInfo={trickplayInfo}
+                scrubFrame={scrubFrame}
                 time={time}
                 chapterName={scrubChapterName}
               />
@@ -274,6 +278,7 @@ export const BottomControls: FC<BottomControlsProps> = ({
                   <TrickplayBubble
                     trickPlayUrl={trickPlayUrl}
                     trickplayInfo={trickplayInfo}
+                    scrubFrame={scrubFrame}
                     time={time}
                     chapterName={scrubChapterName}
                   />

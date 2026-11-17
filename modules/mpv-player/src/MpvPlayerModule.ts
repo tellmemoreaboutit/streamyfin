@@ -13,6 +13,16 @@ declare class MpvPlayerModule extends NativeModule<MpvPlayerModuleEvents> {
    * older-binary cases.
    */
   supportsAv1HardwareDecode(): boolean;
+  /**
+   * iOS only: a JPEG frame (file:// uri) of the video at `url` near `seconds`,
+   * or null. A newer request cancels the one in flight. Absent on Android/TV
+   * and older binaries.
+   */
+  thumbnailAt?(
+    url: string,
+    seconds: number,
+    maxWidth: number,
+  ): Promise<string | null>;
 }
 
 // This call loads the native module object from the JSI.

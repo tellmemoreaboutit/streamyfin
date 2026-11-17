@@ -588,6 +588,11 @@ export type Settings = {
   openSubtitlesApiKey?: string;
   // TV-only: Inactivity timeout for auto-logout
   inactivityTimeout: InactivityTimeout;
+  // App passcode lock (phones). The PIN hash itself lives in SecureStore.
+  appLockEnabled: boolean;
+  appLockFaceId: boolean;
+  /** Seconds in the background before the lock returns; 0 = immediately. */
+  appLockGraceSeconds: number;
   /** Anonymous crash/error reporting via Sentry (on by default, opt-out). */
   sentryEnabled: boolean;
 };
@@ -777,6 +782,9 @@ export const defaultValues: Settings = {
   openSubtitlesEnabled: true,
   // TV-only: Inactivity timeout (disabled by default)
   inactivityTimeout: InactivityTimeout.Disabled,
+  appLockEnabled: false,
+  appLockFaceId: false,
+  appLockGraceSeconds: 0,
   // Crash reporting defaults on; the intro sheet and settings expose the opt-out
   sentryEnabled: true,
 };

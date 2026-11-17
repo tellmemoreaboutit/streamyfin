@@ -67,6 +67,13 @@ public class MpvPlayerModule: Module {
       return VTIsHardwareDecodeSupported(kCMVideoCodecType_AV1)
     }
 
+    // Scrub preview frame from a file AVFoundation can read (mp4/mov).
+    AsyncFunction("thumbnailAt") { (url: String, seconds: Double, maxWidth: Double, promise: Promise) in
+      ScrubThumbnailer.shared.thumbnail(urlString: url, seconds: seconds, maxWidth: maxWidth) {
+        promise.resolve($0)
+      }
+    }
+
     // Defines a JavaScript function that always returns a Promise and whose native code
     // is by default dispatched on the different thread than the JavaScript runtime runs on.
     AsyncFunction("setValueAsync") { (value: String) in

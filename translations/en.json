@@ -77,6 +77,24 @@
     "save_button": "Save",
     "cancel_button": "Cancel"
   },
+  "app_lock": {
+    "title": "App lock",
+    "require_passcode": "Require passcode",
+    "change_passcode": "Change passcode",
+    "use_face_id": "Use Face ID",
+    "require_after": "Require after",
+    "immediately": "Immediately",
+    "minutes": "{{count}} min",
+    "enter_current": "Enter current passcode",
+    "enter_new": "Enter new passcode",
+    "confirm_new": "Confirm new passcode",
+    "wrong_passcode": "Wrong passcode",
+    "try_again_in": "Too many attempts. Try again in {{seconds}} s",
+    "forgot": "Forgot passcode?",
+    "forgot_desc": "This turns off the lock and logs you out of all saved accounts and servers.",
+    "reset": "Reset",
+    "face_id_reason": "Unlock Streamyfin"
+  },
   "pin": {
     "enter_pin": "Enter PIN",
     "enter_pin_for": "Enter PIN for {{username}}",

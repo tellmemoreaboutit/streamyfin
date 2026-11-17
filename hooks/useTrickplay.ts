@@ -1,10 +1,22 @@
-import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
+import type {
+  BaseItemDto,
+  MediaSourceInfo,
+} from "@jellyfin/sdk/lib/generated-client";
+import { requireOptionalNativeModule } from "expo";
 import { useGlobalSearchParams } from "expo-router";
 import { useAtomValue } from "jotai";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Platform } from "react-native";
 import { prefetchServerImage } from "@/components/common/ServerImage";
+import { useSlowmoJobs } from "@/hooks/useSlowmoJobs";
 import { useDownload } from "@/providers/DownloadProvider";
 import { apiAtom } from "@/providers/JellyfinProvider";
+import {
+  bucketSeconds,
+  FrameCache,
+  resolveFrameSource,
+} from "@/utils/scrubFrame";
+import { isSlowmoSource } from "@/utils/slowmo";
 import { ticksToMs } from "@/utils/time";
 import {
   generateTrickplayUrl,
@@ -18,13 +30,29 @@ interface TrickplayUrl {
   url: string;
 }
 
+const FRAME_THROTTLE_MS = 150;
+// Output width in pixels: the bubble is ~240pt wide at 2-3x density.
+const FRAME_MAX_WIDTH = 480;
+
+type FrameModule = {
+  thumbnailAt?: (
+    url: string,
+    seconds: number,
+    maxWidth: number,
+  ) => Promise<string | null>;
+};
+
 /**
- * Hook to handle trickplay logic for a given item.
+ * Hook to handle trickplay logic for a given item. Without Jellyfin trickplay
+ * it falls back to grabbing a frame on-device (iOS, mp4/mov sources only), see
+ * `scrubFrame`.
  * @param mediaSourceId The playing version, see getTrickplayInfo.
+ * @param mediaSource The playing source, for the on-device frame fallback.
  */
 export const useTrickplay = (
   item: BaseItemDto,
   mediaSourceId?: string | null,
+  mediaSource?: MediaSourceInfo | null,
 ) => {
   const api = useAtomValue(apiAtom);
   const { getDownloadedItemById } = useDownload();
@@ -35,6 +63,77 @@ export const useTrickplay = (
   const trickplayInfo = useMemo(
     () => getTrickplayInfo(item, mediaSourceId),
     [item, mediaSourceId],
+  );
+
+  // On-device frame fallback
+  const slowmo = !!mediaSource && isSlowmoSource(mediaSource);
+  const { data: jobs } = useSlowmoJobs(slowmo);
+  const [frameUri, setFrameUri] = useState<string | null>(null);
+  const frameCache = useRef(new FrameCache(60));
+  const frameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const frameRequest = useRef(0);
+  const latestSeconds = useRef(0);
+  const native = useMemo(
+    () =>
+      Platform.OS === "ios" && !Platform.isTV
+        ? requireOptionalNativeModule<FrameModule>("MpvPlayer")
+        : null,
+    [],
+  );
+  const frameEnabled =
+    !trickplayInfo &&
+    typeof native?.thumbnailAt === "function" &&
+    !!api?.accessToken &&
+    !!resolveFrameSource(item, mediaSource, jobs, 0);
+  const videoStream = mediaSource?.MediaStreams?.find(
+    (s) => s.Type === "Video",
+  );
+  const frameAspectRatio =
+    videoStream?.Width && videoStream?.Height
+      ? videoStream.Width / videoStream.Height
+      : 16 / 9;
+
+  useEffect(
+    () => () => {
+      if (frameTimer.current) clearTimeout(frameTimer.current);
+    },
+    [],
+  );
+
+  const requestFrame = useCallback(async () => {
+    const target = resolveFrameSource(
+      item,
+      mediaSource,
+      jobs,
+      bucketSeconds(latestSeconds.current),
+    );
+    if (!target || !api) return;
+    const bucket = bucketSeconds(target.seconds);
+    const key = `${target.sourceId}:${bucket}`;
+    const cached = frameCache.current.get(key);
+    if (cached) return setFrameUri(cached);
+    const id = ++frameRequest.current;
+    const url = `${api.basePath}/Videos/${item.Id}/stream.${target.ext}?static=true&mediaSourceId=${target.sourceId}&ApiKey=${api.accessToken}`;
+    try {
+      const uri = await native?.thumbnailAt?.(url, bucket, FRAME_MAX_WIDTH);
+      if (!uri) return;
+      frameCache.current.set(key, uri);
+      // Only the newest request matters while scrubbing.
+      if (id === frameRequest.current) setFrameUri(uri);
+    } catch {}
+  }, [item, mediaSource, jobs, api, native]);
+
+  /** Throttled with a trailing call, so the last scrub position always lands. */
+  const scheduleFrame = useCallback(
+    (progressTicks: number) => {
+      latestSeconds.current = Math.max(0, ticksToMs(progressTicks)) / 1000;
+      if (frameTimer.current) return;
+      frameTimer.current = setTimeout(() => {
+        frameTimer.current = null;
+        requestFrame();
+      }, FRAME_THROTTLE_MS);
+    },
+    [requestFrame],
   );
 
   /** Generates the trickplay URL for the given item and sheet index.
@@ -54,6 +153,7 @@ export const useTrickplay = (
   /** Calculates the trickplay URL for the current progress. */
   const calculateTrickplayUrl = useCallback(
     (progress: number) => {
+      if (frameEnabled) return scheduleFrame(progress);
       const now = Date.now();
       if (
         !trickplayInfo ||
@@ -69,7 +169,14 @@ export const useTrickplay = (
       const url = getTrickplayUrl(item, sheetIndex);
       if (url) setTrickPlayUrl({ x, y, url });
     },
-    [trickplayInfo, item, throttleDelay, getTrickplayUrl],
+    [
+      trickplayInfo,
+      item,
+      throttleDelay,
+      getTrickplayUrl,
+      frameEnabled,
+      scheduleFrame,
+    ],
   );
 
   /** Prefetches all the trickplay images for the item, limiting concurrency to avoid I/O spikes. */
@@ -99,6 +206,10 @@ export const useTrickplay = (
     calculateTrickplayUrl,
     prefetchAllTrickplayImages,
     trickplayInfo,
+    /** On-device frame for the scrub bubble; null when the fallback doesn't apply. */
+    scrubFrame: frameEnabled
+      ? { uri: frameUri, aspectRatio: frameAspectRatio }
+      : null,
   };
 };
 

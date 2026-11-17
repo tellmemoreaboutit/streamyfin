@@ -76,6 +76,7 @@
     "expo-key-event": "^1.9.0",
     "expo-linear-gradient": "~58.0.3",
     "expo-linking": "~58.0.16",
+    "expo-local-authentication": "~58.0.3",
     "expo-localization": "~58.0.5",
     "expo-location": "~58.0.20",
     "expo-notifications": "~58.1.8",

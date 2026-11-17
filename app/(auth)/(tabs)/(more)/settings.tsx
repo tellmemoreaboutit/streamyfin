@@ -10,6 +10,7 @@ import { Text } from "@/components/common/Text";
 import { ListGroup } from "@/components/list/ListGroup";
 import { ListItem } from "@/components/list/ListItem";
 import { AppLanguageSelector } from "@/components/settings/AppLanguageSelector";
+import { AppLockSettings } from "@/components/settings/AppLockSettings";
 import { QuickConnect } from "@/components/settings/QuickConnect";
 import { StorageSettings } from "@/components/settings/StorageSettings";
 import { UserInfo } from "@/components/settings/UserInfo";
@@ -106,6 +107,10 @@ function SettingsMobile() {
 
         <View className='mb-4'>
           <AppLanguageSelector />
+        </View>
+
+        <View className='mb-4'>
+          <AppLockSettings />
         </View>
 
         <View className='mb-4'>

@@ -78,6 +78,24 @@
     "save_button": "Zapisz",
     "cancel_button": "Anuluj"
   },
+  "app_lock": {
+    "title": "Blokada aplikacji",
+    "require_passcode": "Wymagaj kodu",
+    "change_passcode": "Zmień kod",
+    "use_face_id": "Użyj Face ID",
+    "require_after": "Wymagaj po",
+    "immediately": "Natychmiast",
+    "minutes": "{{count}} min",
+    "enter_current": "Wpisz obecny kod",
+    "enter_new": "Wpisz nowy kod",
+    "confirm_new": "Potwierdź nowy kod",
+    "wrong_passcode": "Błędny kod",
+    "try_again_in": "Zbyt wiele prób. Spróbuj ponownie za {{seconds}} s",
+    "forgot": "Nie pamiętam kodu",
+    "forgot_desc": "Wyłączy to blokadę i wyloguje ze wszystkich zapisanych kont i serwerów.",
+    "reset": "Resetuj",
+    "face_id_reason": "Odblokuj Streamyfin"
+  },
   "pin": {
     "enter_pin": "Wprowadź PIN",
     "enter_pin_for": "Wprowadź PIN dla {{username}}",

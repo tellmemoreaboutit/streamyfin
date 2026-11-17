@@ -67,7 +67,7 @@ export const deleteSlowmoVersion = (
     body: JSON.stringify({ path }),
   });
 
-// Versions written by the service are named "<movie> - Slowmo x4 01m30s +2.mkv".
+// Versions written by the service are named "<movie> - Slowmo x4 01m30s +2.mp4" (older versions: .mkv).
 export const isSlowmoSource = (source: MediaSourceInfo) =>
   /- Slowmo /.test(source.Path ?? source.Name ?? "");
 

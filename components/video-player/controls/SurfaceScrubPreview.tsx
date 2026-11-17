@@ -57,7 +57,7 @@ export const SurfaceScrubPreview: FC<Props> = ({
         style,
       ]}
     >
-      {bubble.trickPlayUrl && bubble.trickplayInfo ? (
+      {(bubble.trickPlayUrl && bubble.trickplayInfo) || bubble.scrubFrame ? (
         <TrickplayBubble {...bubble} />
       ) : (
         <View

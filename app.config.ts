@@ -67,6 +67,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ]);
 
     config.plugins?.push([
+      "expo-local-authentication",
+      { faceIDPermission: "Unlock Streamyfin with Face ID" },
+    ]);
+
+    config.plugins?.push([
       "expo-camera",
       {
         cameraPermission:

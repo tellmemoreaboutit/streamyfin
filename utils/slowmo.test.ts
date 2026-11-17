@@ -1,5 +1,6 @@
 import {
   firstPartStartSeconds,
+  isSlowmoSource,
   mapPositionBetweenVersions,
   nextPartStart,
   nextSegmentIndex,
@@ -166,5 +167,14 @@ describe("segment navigation", () => {
     expect(prevSegmentIndex(31, segs)).toBe(1);
     expect(prevSegmentIndex(5, segs)).toBeNull();
     expect(prevSegmentIndex(0, [])).toBeNull();
+  });
+});
+
+describe("isSlowmoSource", () => {
+  test("recognises .mp4 and older .mkv versions, not the original", () => {
+    const s = (Path: string) => ({ Path }) as never;
+    expect(isSlowmoSource(s("/m/A - Slowmo x4 01m30s.mp4"))).toBe(true);
+    expect(isSlowmoSource(s("/m/A - Slowmo x4 01m30s.mkv"))).toBe(true);
+    expect(isSlowmoSource(s("/m/A.mp4"))).toBe(false);
   });
 });

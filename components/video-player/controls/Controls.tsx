@@ -196,7 +196,8 @@ export const Controls: FC<Props> = ({
     calculateTrickplayUrl,
     trickplayInfo,
     prefetchAllTrickplayImages,
-  } = useTrickplay(item, mediaSource?.Id);
+    scrubFrame,
+  } = useTrickplay(item, mediaSource?.Id, mediaSource);
 
   const min = useSharedValue(0);
   // Regular value for use during render (avoids Reanimated warning)
@@ -994,6 +995,7 @@ export const Controls: FC<Props> = ({
               seekTo={seekTo}
               trickPlayUrl={trickPlayUrl}
               trickplayInfo={trickplayInfo}
+              scrubFrame={scrubFrame}
               time={isSliding || showRemoteBubble ? time : remoteTime}
               progress={progress}
               surfaceScrubbing={surfaceScrubbing}
