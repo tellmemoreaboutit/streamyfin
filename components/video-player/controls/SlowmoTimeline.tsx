@@ -36,12 +36,14 @@ interface Props {
   // Playback position in milliseconds
   progress: SharedValue<number>;
   durationMs: number;
+  /** Seeks to a position in milliseconds. */
+  seek: (ms: number) => void;
 }
 
 // Marked slowmo segments drawn above the seek bar (same width, so the ranges
 // line up with it), the pending start as a marker growing up to the playhead,
 // and an editor for the tapped segment.
-export const SlowmoTimeline: FC<Props> = ({ progress, durationMs }) => {
+export const SlowmoTimeline: FC<Props> = ({ progress, durationMs, seek }) => {
   const { t } = useTranslation();
   const [segments, setSegments] = useAtom(slowmoSegmentsAtom);
   const pendingStart = useAtomValue(slowmoPendingStartAtom);
@@ -207,17 +209,21 @@ export const SlowmoTimeline: FC<Props> = ({ progress, durationMs }) => {
           return (
             <Pressable
               key={i}
-              onPress={() => setSelected(selected === i ? null : i)}
+              onPress={() => {
+                // Select and jump to its start; the editor's close button deselects
+                setSelected(i);
+                seek(s.start * 1000);
+              }}
               hitSlop={{ top: 8, bottom: 8 }}
               style={{
                 position: "absolute",
-                top: 0,
-                height: BAR_HEIGHT,
+                top: selected === i ? -3 : 0,
+                height: selected === i ? BAR_HEIGHT + 6 : BAR_HEIGHT,
                 left: r.left * width,
                 width: Math.max(r.width * width, MIN_WIDTH_PX),
                 borderRadius: 4,
                 backgroundColor: selected === i ? COLOR_SELECTED : COLOR,
-                borderWidth: selected === i ? 1 : 0,
+                borderWidth: selected === i ? 2 : 0,
                 borderColor: "white",
               }}
             />

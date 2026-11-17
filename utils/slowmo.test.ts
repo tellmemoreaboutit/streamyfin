@@ -2,10 +2,12 @@ import {
   firstPartStartSeconds,
   mapPositionBetweenVersions,
   nextPartStart,
+  nextSegmentIndex,
   nudgeSegment,
   originalToSlowmo,
   pendingJobsForItem,
   prevPartStart,
+  prevSegmentIndex,
   rangeFractions,
   type SlowmoJob,
   setSegmentEdge,
@@ -141,5 +143,28 @@ describe("firstPartStartSeconds", () => {
       firstPartStartSeconds({ segments: [{ start: 1, end: 2 }], factor: 4 }),
     ).toBe(0);
     expect(firstPartStartSeconds({ segments: [], factor: 4 })).toBe(0);
+  });
+});
+
+describe("segment navigation", () => {
+  // Deliberately unsorted: indices refer to the array as stored
+  const segs = [
+    { start: 50, end: 60 },
+    { start: 10, end: 20 },
+    { start: 30, end: 40 },
+  ];
+  test("next picks the earliest start after the position", () => {
+    expect(nextSegmentIndex(0, segs)).toBe(1);
+    expect(nextSegmentIndex(10, segs)).toBe(2);
+    expect(nextSegmentIndex(35, segs)).toBe(0);
+    expect(nextSegmentIndex(50, segs)).toBeNull();
+    expect(nextSegmentIndex(0, [])).toBeNull();
+  });
+  test("prev picks the latest start before the position", () => {
+    expect(prevSegmentIndex(100, segs)).toBe(0);
+    expect(prevSegmentIndex(50.5, segs)).toBe(2);
+    expect(prevSegmentIndex(31, segs)).toBe(1);
+    expect(prevSegmentIndex(5, segs)).toBeNull();
+    expect(prevSegmentIndex(0, [])).toBeNull();
   });
 });

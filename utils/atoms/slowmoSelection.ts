@@ -4,6 +4,8 @@ import type { SlowmoSegment } from "@/utils/slowmo";
 // The segments being marked in the player, shared by the header control and
 // the timeline above the seek bar.
 export const slowmoSegmentsAtom = atom<SlowmoSegment[]>([]);
+// Slowmo mode: shows the marking toolbar next to the seek bar
+export const slowmoModeAtom = atom(false);
 // Start (s) of the segment being marked; null between segments
 export const slowmoPendingStartAtom = atom<number | null>(null);
 // Index of the segment open in the timeline editor

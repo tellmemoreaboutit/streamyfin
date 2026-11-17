@@ -221,7 +221,11 @@ export const BottomControls: FC<BottomControlsProps> = ({
       >
         <View className={"flex flex-col w-full shrink"}>
           {progress && (
-            <SlowmoTimeline progress={progress} durationMs={durationMs} />
+            <SlowmoTimeline
+              progress={progress}
+              durationMs={durationMs}
+              seek={seek}
+            />
           )}
           <View
             style={{

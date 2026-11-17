@@ -4,15 +4,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAtom } from "jotai";
 import { type FC, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Linking, TouchableOpacity, View } from "react-native";
+import { Linking, View } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
 import { toast } from "sonner-native";
 import { Text } from "@/components/common/Text";
 import { PlatformDropdown } from "@/components/PlatformDropdown";
-import { useHaptic } from "@/hooks/useHaptic";
 import { useSettings } from "@/utils/atoms/settings";
 import {
   slowmoLoopAtom,
+  slowmoModeAtom,
   slowmoPendingStartAtom,
   slowmoSegmentsAtom,
   slowmoSelectedAtom,
@@ -35,17 +35,17 @@ interface Props {
   pause?: () => void;
 }
 
-// The button marks segment start/end alternately (the timeline above the seek
-// bar shows and edits them); the menu next to it sends them with a factor and
-// opens the web GUI at the current position.
+// The header button opens the Slowmo menu (mode toggle, web GUI, send, clear,
+// whole movie). Marking happens in the toolbar next to the seek bar, which the
+// mode toggle shows.
 export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
   const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const { mediaSource } = usePlayerContext();
   const queryClient = useQueryClient();
-  const haptic = useHaptic("light");
   const [segments, setSegments] = useAtom(slowmoSegmentsAtom);
-  const [pendingStart, setPendingStart] = useAtom(slowmoPendingStartAtom);
+  const [, setPendingStart] = useAtom(slowmoPendingStartAtom);
+  const [mode, setMode] = useAtom(slowmoModeAtom);
   const [, setSelected] = useAtom(slowmoSelectedAtom);
   const [, setLoop] = useAtom(slowmoLoopAtom);
 
@@ -56,35 +56,26 @@ export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
       setPendingStart(null);
       setSelected(null);
       setLoop({ on: false, rate: 1 });
+      setMode(false);
     },
-    [setSegments, setPendingStart, setSelected, setLoop],
+    [setSegments, setPendingStart, setSelected, setLoop, setMode],
   );
 
-  const onMark = () => {
-    haptic();
-    const now = progress.value / 1000;
-    if (pendingStart === null) {
-      setPendingStart(now);
-      toast.info(t("slowmo.mark_start"));
-      return;
-    }
-    const start = Math.min(pendingStart, now);
-    const end = Math.max(pendingStart, now);
-    setSegments((prev) => [...prev, { start, end }]);
-    setSelected(segments.length);
-    setPendingStart(null);
-    toast.info(t("slowmo.mark_end"));
-  };
-
-  const send = (factor: number) => {
+  const send = (factor: number, whole = false) => {
     if (!item.Id) return;
-    createSlowmoJob(settings, { itemId: item.Id, segments, factor })
+    createSlowmoJob(settings, {
+      itemId: item.Id,
+      segments: whole ? [] : segments,
+      factor,
+    })
       .then(() => {
         toast.success(t("slowmo.queued"));
         updateSettings({ slowmoLastFactor: factor });
         queryClient.invalidateQueries({ queryKey: ["slowmo-jobs"] });
-        setSegments([]);
-        setSelected(null);
+        if (!whole) {
+          setSegments([]);
+          setSelected(null);
+        }
       })
       .catch((e) => toast.error(`${t("slowmo.failed")}: ${e.message}`));
   };
@@ -116,12 +107,21 @@ export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
         segmentCount: segments.length,
         lastFactor: settings.slowmoLastFactor,
         hasServerUrl: !!settings.slowmoServerUrl,
+        modeOn: mode,
+        onToggleMode: () => setMode((m) => !m),
+        onClear: () => {
+          setSegments([]);
+          setPendingStart(null);
+          setSelected(null);
+        },
+        onSendWhole: (factor) => send(factor, true),
         onOpenWebGui: openWebGui,
         onSend: send,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       segments,
+      mode,
       t,
       settings.slowmoServerUrl,
       settings.slowmoToken,
@@ -135,36 +135,44 @@ export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
   // Stable element: PlatformDropdown is memoized on the trigger's identity
   const trigger = useMemo(
     () => (
-      <View className='px-2 py-1 rounded-full bg-white/20'>
-        {segments.length > 0 ? (
-          <Text className='text-xs'>{segments.length}</Text>
-        ) : (
-          <Ionicons name='globe-outline' size={14} color='white' />
-        )}
-      </View>
-    ),
-    [segments.length],
-  );
-
-  return (
-    <View className='flex flex-row items-center'>
-      <TouchableOpacity
-        onPress={onMark}
-        className='flex flex-col items-center justify-center w-11 h-11'
-      >
+      <View className='flex items-center justify-center w-11 h-11'>
         <Ionicons
           name='speedometer'
           size={ICON_SIZES.HEADER}
-          color={pendingStart === null ? "white" : "#f59e0b"}
+          color={mode ? "#fbbf24" : "white"}
         />
-      </TouchableOpacity>
-      <PlatformDropdown
-        title={t("slowmo.title")}
-        groups={groups}
-        expoUIConfig={{}}
-        bottomSheetConfig={{ enablePanDownToClose: true }}
-        trigger={trigger}
-      />
-    </View>
+        {segments.length > 0 && (
+          <View
+            style={{
+              position: "absolute",
+              top: 2,
+              right: 0,
+              minWidth: 16,
+              height: 16,
+              borderRadius: 8,
+              paddingHorizontal: 4,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "#fbbf24",
+            }}
+          >
+            <Text style={{ fontSize: 10, color: "black", fontWeight: "700" }}>
+              {segments.length}
+            </Text>
+          </View>
+        )}
+      </View>
+    ),
+    [segments.length, mode],
+  );
+
+  return (
+    <PlatformDropdown
+      title={t("slowmo.title")}
+      groups={groups}
+      expoUIConfig={{}}
+      bottomSheetConfig={{ enablePanDownToClose: true }}
+      trigger={trigger}
+    />
   );
 };

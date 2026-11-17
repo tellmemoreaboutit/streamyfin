@@ -236,3 +236,29 @@ export const firstPartStartSeconds = (
   job: Pick<SlowmoJob, "segments" | "factor">,
   lead = 2,
 ) => Math.max((slowedParts(job)[0]?.start ?? 0) - lead, 0);
+
+/** Index (in `segments`, which may be unsorted) of the first segment starting after the position. */
+export const nextSegmentIndex = (pos: number, segments: SlowmoSegment[]) => {
+  let best: number | null = null;
+  segments.forEach((s, i) => {
+    if (
+      s.start > pos + 0.5 &&
+      (best === null || s.start < segments[best].start)
+    )
+      best = i;
+  });
+  return best;
+};
+
+/** Index of the last segment starting before the position (past its first 1.5 s). */
+export const prevSegmentIndex = (pos: number, segments: SlowmoSegment[]) => {
+  let best: number | null = null;
+  segments.forEach((s, i) => {
+    if (
+      s.start < pos - 1.5 &&
+      (best === null || s.start > segments[best].start)
+    )
+      best = i;
+  });
+  return best;
+};
