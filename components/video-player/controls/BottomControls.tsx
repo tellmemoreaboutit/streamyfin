@@ -17,15 +17,12 @@ import {
   chapterNameAt,
   hasChapterMarkers,
 } from "@/utils/chapters";
-import { episodeSubtitle } from "@/utils/episodeLabel";
+import { CHROME } from "./constants";
+import { PlayerTools } from "./PlayerTools";
 import { SlowmoTimeline } from "./SlowmoTimeline";
 import { SurfaceScrubPreview } from "./SurfaceScrubPreview";
 import { TimeDisplay } from "./TimeDisplay";
 import { TrickplayBubble } from "./TrickplayBubble";
-
-// Chapter tick height in dp — matches the slider track height for a clean,
-// flush look (no top/bottom overflow).
-const TICK_HEIGHT = 10;
 
 interface BottomControlsProps {
   item: BaseItemDto;
@@ -77,10 +74,15 @@ interface BottomControlsProps {
   surfaceScrubbing?: boolean;
   /** Target of that scrub in ms. */
   surfaceScrubPosition?: SharedValue<number>;
+  /** Fine-scrub speed of that drag (1 = normal), shown while below 1. */
+  surfaceScrubRate?: number;
+  isPlaying: boolean;
+  /** Seek to an absolute position in ms. */
+  seek: (ms: number) => void;
+  stepFrame: (direction: 1 | -1) => void;
 }
 
 export const BottomControls: FC<BottomControlsProps> = ({
-  item,
   chapters,
   durationMs,
   showControls,
@@ -105,11 +107,25 @@ export const BottomControls: FC<BottomControlsProps> = ({
   progress,
   surfaceScrubbing = false,
   surfaceScrubPosition,
+  surfaceScrubRate = 1,
+  isPlaying,
+  seek,
+  stepFrame,
 }) => {
   const { t } = useTranslation();
   const insets = useControlsSafeAreaInsets();
   const [chapterListVisible, setChapterListVisible] = useState(false);
   const [trackWidth, setTrackWidth] = useState(0);
+  const trackHeight =
+    isSliding || surfaceScrubbing
+      ? CHROME.TRACK_HEIGHT_SCRUBBING
+      : CHROME.TRACK_HEIGHT;
+  const rateKey =
+    surfaceScrubRate <= 0.1
+      ? "player.scrub_fine"
+      : surfaceScrubRate <= 0.25
+        ? "player.scrub_quarter"
+        : "player.scrub_half";
 
   const chapterMarkerList = useMemo(
     () => chapterMarkers(chapters, durationMs),
@@ -144,55 +160,63 @@ export const BottomControls: FC<BottomControlsProps> = ({
           right: insets.right,
           left: insets.left,
           bottom: Math.max(insets.bottom - 17, 0),
+          paddingHorizontal: 16,
         },
       ]}
-      className={"flex flex-col px-2"}
+      className={"flex flex-col"}
       onTouchStart={handleControlsInteraction}
     >
+      {/* Current chapter on the left, chapter list on the right (native layout) */}
       <View
-        className='shrink flex flex-col justify-center'
         style={{
           flexDirection: "row",
+          alignItems: "center",
           justifyContent: "space-between",
+          minHeight: 20,
         }}
+        pointerEvents={showControls ? "box-none" : "none"}
       >
-        <View
-          className='flex flex-col items-start shrink'
-          pointerEvents={showControls ? "box-none" : "none"}
+        <Text
+          numberOfLines={1}
+          style={{
+            flexShrink: 1,
+            fontSize: 12,
+            color: "rgba(255,255,255,0.7)",
+          }}
         >
-          {item?.Type === "Episode" && (
-            <Text className='opacity-50'>{episodeSubtitle(t, item)}</Text>
-          )}
-          <Text className='font-bold text-xl'>{item?.Name}</Text>
-          {item?.Type === "Movie" && (
-            <Text className='text-xs opacity-50'>{item?.ProductionYear}</Text>
-          )}
-          {item?.Type === "Audio" && (
-            <Text className='text-xs opacity-50'>{item?.Album}</Text>
-          )}
-          {currentChapterName ? (
-            <Text className='text-xs opacity-70 mt-1' numberOfLines={1}>
-              {currentChapterName}
-            </Text>
-          ) : null}
-        </View>
-        <View className='flex flex-row items-end space-x-2 shrink-0 pr-2 pb-1'>
-          {hasChapters && (
-            <Pressable
-              onPress={() => setChapterListVisible(true)}
-              hitSlop={10}
-              // mb centers the bare 24px icon on the taller skip/next buttons
-              className='justify-center ml-4 mb-1'
-              accessibilityRole='button'
-              accessibilityLabel={t("chapters.open")}
-            >
-              <Ionicons name='bookmarks' size={24} color='white' />
-            </Pressable>
-          )}
-        </View>
+          {currentChapterName ?? ""}
+        </Text>
+        {surfaceScrubbing && surfaceScrubRate < 1 && (
+          <View
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 3,
+              borderRadius: 999,
+              backgroundColor: "rgba(0,0,0,0.6)",
+            }}
+          >
+            <Text style={{ fontSize: 12 }}>{t(rateKey)}</Text>
+          </View>
+        )}
+        {hasChapters && (
+          <Pressable
+            onPress={() => setChapterListVisible(true)}
+            hitSlop={10}
+            accessibilityRole='button'
+            accessibilityLabel={t("chapters.open")}
+          >
+            <Ionicons name='bookmark-outline' size={20} color='white' />
+          </Pressable>
+        )}
       </View>
+      <PlayerTools
+        progress={progress ?? effectiveProgress}
+        isPlaying={isPlaying}
+        seek={seek}
+        stepFrame={stepFrame}
+      />
       <View
-        className={"flex flex-col-reverse rounded-lg items-center my-2"}
+        className={"flex flex-col-reverse rounded-lg items-center mb-2"}
         pointerEvents={showControls ? "box-none" : "none"}
       >
         <View className={"flex flex-col w-full shrink"}>
@@ -201,7 +225,7 @@ export const BottomControls: FC<BottomControlsProps> = ({
           )}
           <View
             style={{
-              height: 10,
+              height: CHROME.SCRUBBER_HEIGHT,
               justifyContent: "center",
               alignItems: "stretch",
               // Allow chapter ticks taller than the 10px track to bleed out
@@ -225,9 +249,9 @@ export const BottomControls: FC<BottomControlsProps> = ({
             )}
             <Slider
               theme={{
-                maximumTrackTintColor: "rgba(255,255,255,0.2)",
+                maximumTrackTintColor: "rgba(255,255,255,0.25)",
                 minimumTrackTintColor: "#fff",
-                cacheTrackTintColor: "rgba(255,255,255,0.3)",
+                cacheTrackTintColor: "rgba(255,255,255,0.4)",
                 bubbleBackgroundColor: "#fff",
                 bubbleTextColor: "#666",
                 heartbeatColor: "#999",
@@ -240,6 +264,7 @@ export const BottomControls: FC<BottomControlsProps> = ({
               containerStyle={{
                 borderRadius: 100,
               }}
+              panHitSlop={{ top: 18, bottom: 18, left: 0, right: 0 }}
               renderBubble={() =>
                 (isSliding || showRemoteBubble) && (
                   <TrickplayBubble
@@ -250,13 +275,16 @@ export const BottomControls: FC<BottomControlsProps> = ({
                   />
                 )
               }
-              sliderHeight={10}
+              sliderHeight={trackHeight}
               thumbWidth={0}
               progress={effectiveProgress}
               minimumValue={min}
               maximumValue={max}
             />
-            <ChapterTicks markers={chapterMarkerList} height={TICK_HEIGHT} />
+            <ChapterTicks
+              markers={chapterMarkerList}
+              height={trackHeight - 2}
+            />
           </View>
           <TimeDisplay
             currentTime={currentTime}

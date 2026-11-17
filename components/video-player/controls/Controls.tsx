@@ -4,7 +4,9 @@ import type {
   MediaSourceInfo,
 } from "@jellyfin/sdk/lib/generated-client";
 import { useKeyEventListener } from "expo-key-event";
+import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
+import { useAtomValue } from "jotai";
 import {
   type FC,
   useCallback,
@@ -36,6 +38,7 @@ import { useDownload } from "@/providers/DownloadProvider";
 import { DownloadedItem } from "@/providers/Downloads/types";
 import { useOfflineMode } from "@/providers/OfflineModeProvider";
 import { useSettings } from "@/utils/atoms/settings";
+import { slowmoSegmentsAtom } from "@/utils/atoms/slowmoSelection";
 import { hasChapterMarkers } from "@/utils/chapters";
 import { routeTrackSelection } from "@/utils/directPlayer/routeTrackIndexes";
 import { resolveStartTicks } from "@/utils/directPlayer/sessionPosition";
@@ -59,14 +62,17 @@ import {
 import { ticksToMs } from "@/utils/time";
 import { BottomControls } from "./BottomControls";
 import { CenterControls } from "./CenterControls";
-import { CONTROLS_CONSTANTS } from "./constants";
+import { CHROME, CONTROLS_CONSTANTS } from "./constants";
 import { usePlayerContext } from "./contexts/PlayerContext";
 import { AndroidSubtitleScaleOverlay } from "./dropdown/DropdownView";
 import { EpisodeList } from "./EpisodeList";
 import { GestureOverlay } from "./GestureOverlay";
 import { HeaderControls } from "./HeaderControls";
 import { useChapterNavigation } from "./hooks/useChapterNavigation";
+import { useFrameStep } from "./hooks/useFrameStep";
 import { useRemoteControl } from "./hooks/useRemoteControl";
+import { useSegmentLoop } from "./hooks/useSegmentLoop";
+import { useSlowedParts } from "./hooks/useSlowedParts";
 import { useVideoNavigation } from "./hooks/useVideoNavigation";
 import { useVideoSlider } from "./hooks/useVideoSlider";
 import { useVideoTime } from "./hooks/useVideoTime";
@@ -75,6 +81,7 @@ import { SkipSegmentOverlay } from "./SkipSegmentOverlay";
 import { TechnicalInfoOverlay } from "./TechnicalInfoOverlay";
 import { useControlsTimeout } from "./useControlsTimeout";
 import { PlaybackSpeedScope } from "./utils/playback-speed-settings";
+import { scrubRate, scrubSpanMs } from "./utils/scrub";
 import { type AspectRatio } from "./VideoScalingModeSelector";
 
 interface Props {
@@ -113,9 +120,10 @@ interface Props {
   transcodeReasons?: string[];
 }
 
+// Native player: 0.2 s ease-in-out opacity fade, no slide
 const CONTROLS_ANIMATION_CONFIG = {
-  duration: 300,
-  easing: Easing.out(Easing.quad),
+  duration: CHROME.FADE_MS,
+  easing: Easing.inOut(Easing.quad),
 };
 
 // Shares its duration with the scrim dim in GestureOverlay so both halves
@@ -198,8 +206,6 @@ export const Controls: FC<Props> = ({
 
   // Animation values for controls
   const controlsOpacity = useSharedValue(showControls ? 1 : 0);
-  const headerTranslateY = useSharedValue(showControls ? 0 : -50);
-  const bottomTranslateY = useSharedValue(showControls ? 0 : 50);
 
   useEffect(() => {
     prefetchAllTrickplayImages();
@@ -211,15 +217,7 @@ export const Controls: FC<Props> = ({
       showControls ? 1 : 0,
       CONTROLS_ANIMATION_CONFIG,
     );
-    headerTranslateY.value = withTiming(
-      showControls ? 0 : -10,
-      CONTROLS_ANIMATION_CONFIG,
-    );
-    bottomTranslateY.value = withTiming(
-      showControls ? 0 : 10,
-      CONTROLS_ANIMATION_CONFIG,
-    );
-  }, [showControls, controlsOpacity, headerTranslateY, bottomTranslateY]);
+  }, [showControls, controlsOpacity]);
 
   // Dim the controls while a speed boost is held so the video stays readable
   const handleHoldSpeedStart = useCallback(() => {
@@ -256,12 +254,20 @@ export const Controls: FC<Props> = ({
   // Create animated styles
   const headerAnimatedStyle = useAnimatedStyle(() => ({
     opacity: controlsOpacity.value,
-    transform: [{ translateY: headerTranslateY.value }],
     position: "absolute" as const,
     top: 0,
     left: 0,
     right: 0,
     zIndex: 10,
+  }));
+
+  const scrimAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: controlsOpacity.value,
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   }));
 
   const centerAnimatedStyle = useAnimatedStyle(() => ({
@@ -276,7 +282,6 @@ export const Controls: FC<Props> = ({
 
   const bottomAnimatedStyle = useAnimatedStyle(() => ({
     opacity: controlsOpacity.value,
-    transform: [{ translateY: bottomTranslateY.value }],
     position: "absolute" as const,
     bottom: 0,
     left: 0,
@@ -314,6 +319,9 @@ export const Controls: FC<Props> = ({
     seek,
     play,
   });
+
+  const stepFrame = useFrameStep(progress, seek, maxMs);
+  useSegmentLoop({ progress, seek, play, playbackSpeed });
 
   useKeyEventListener((e) => {
     if (e?.eventType !== "press") return;
@@ -430,20 +438,53 @@ export const Controls: FC<Props> = ({
     remoteScrubProgress,
     isRemoteScrubbing,
   ]);
-  // `fraction` is the horizontal travel as a share of the screen width
+  // Ticks while a scrub passes a chapter or a slowmo edge
+  const tickHaptic = useHaptic("selection");
+  const markedSegments = useAtomValue(slowmoSegmentsAtom);
+  const slowedParts = useSlowedParts();
+  const scrubMarks = useMemo(() => {
+    if (!settings.enableScrubHaptics) return undefined;
+    const marks = (item.Chapters ?? []).map(
+      (c) => (c.StartPositionTicks ?? 0) / 10000,
+    );
+    for (const s of [...markedSegments, ...slowedParts]) {
+      marks.push(s.start * 1000, s.end * 1000);
+    }
+    return marks.filter((m) => m > 0);
+  }, [settings.enableScrubHaptics, item.Chapters, markedSegments, slowedParts]);
+  const [surfaceScrubRate, setSurfaceScrubRate] = useState(1);
+  // `fraction` is the horizontal travel as a share of the screen width,
+  // `offsetY` the vertical distance from where the drag began (fine scrub)
   const handleScrubMove = useCallback(
-    (fraction: number) => {
-      const value = moveSurfaceScrub(fraction, maxMs);
+    (fraction: number, offsetY: number) => {
+      const rate = scrubRate(offsetY, settings.enableFineScrub);
+      setSurfaceScrubRate(rate);
+      const value = moveSurfaceScrub(fraction, maxMs, {
+        spanMs: scrubSpanMs(settings.scrubSpanSeconds, maxMs),
+        rate,
+        marks: scrubMarks,
+        onMark: tickHaptic,
+      });
       surfaceScrubMs.value = value;
       remoteScrubProgress.value = value;
     },
-    [moveSurfaceScrub, maxMs, surfaceScrubMs, remoteScrubProgress],
+    [
+      moveSurfaceScrub,
+      maxMs,
+      settings.scrubSpanSeconds,
+      settings.enableFineScrub,
+      scrubMarks,
+      tickHaptic,
+      surfaceScrubMs,
+      remoteScrubProgress,
+    ],
   );
   const handleScrubEnd = useCallback(
     (cancelled: boolean) => {
       isRemoteScrubbing.value = false;
       remoteScrubProgress.value = null;
       setSurfaceScrubbing(false);
+      setSurfaceScrubRate(1);
       endSurfaceScrub(cancelled);
     },
     [isRemoteScrubbing, remoteScrubProgress, endSurfaceScrub],
@@ -831,11 +872,28 @@ export const Controls: FC<Props> = ({
         />
       ) : (
         <>
+          {/* Gradient scrims like the native chrome, fading with the controls */}
+          <Animated.View pointerEvents='none' style={scrimAnimatedStyle}>
+            <LinearGradient
+              pointerEvents='none'
+              colors={[`rgba(0,0,0,${CHROME.SCRIM_OPACITY})`, "rgba(0,0,0,0)"]}
+              style={{ height: CHROME.SCRIM_TOP_HEIGHT }}
+            />
+            <View style={{ flex: 1 }} />
+            <LinearGradient
+              pointerEvents='none'
+              colors={["rgba(0,0,0,0)", `rgba(0,0,0,${CHROME.SCRIM_OPACITY})`]}
+              style={{ height: CHROME.SCRIM_BOTTOM_HEIGHT }}
+            />
+          </Animated.View>
           <GestureOverlay
             showControls={showControls}
             onToggleControls={toggleControls}
-            onSkipForward={handleSkipForward}
-            onSkipBackward={handleSkipBackward}
+            onSeekBy={(seconds) =>
+              seconds > 0
+                ? handleSeekForward(seconds)
+                : handleSeekBackward(-seconds)
+            }
             onHoldSpeedStart={handleHoldSpeedStart}
             onHoldSpeedEnd={handleHoldSpeedEnd}
             onScrubStart={handleScrubStart}
@@ -940,6 +998,10 @@ export const Controls: FC<Props> = ({
               progress={progress}
               surfaceScrubbing={surfaceScrubbing}
               surfaceScrubPosition={surfaceScrubMs}
+              surfaceScrubRate={surfaceScrubRate}
+              isPlaying={isPlaying}
+              seek={seek}
+              stepFrame={stepFrame}
             />
           </Animated.View>
           {/* Skip Intro / Skip Credits float independently of the controls so

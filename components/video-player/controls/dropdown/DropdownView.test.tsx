@@ -53,6 +53,17 @@ jest.mock("@/hooks/useAppRouter", () => ({
   __esModule: true,
   default: () => ({ replace: jest.fn() }),
 }));
+jest.mock("@tanstack/react-query", () => ({
+  ...jest.requireActual("@tanstack/react-query"),
+  useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+}));
+// The version switcher pulls in the download provider and its native modules.
+jest.mock("../hooks/useVersionSwitch", () => ({
+  useVersionSwitch: () => ({
+    slowmoSources: [],
+    versionsGroup: { options: [] },
+  }),
+}));
 // The real settings atom loads the screens that edit it.
 jest.mock("@/utils/atoms/settings", () => ({
   useSettings: () => ({ settings: { subtitleSize: 1 }, pluginSettings: {} }),

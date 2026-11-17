@@ -7,6 +7,7 @@ import { SettingSwitch } from "@/components/common/SettingSwitch";
 import { PlatformDropdown } from "@/components/PlatformDropdown";
 import { PLAYBACK_SPEEDS } from "@/components/PlaybackSpeedSelector";
 import DisabledSetting from "@/components/settings/DisabledSetting";
+import { SCRUB_SPAN_OPTIONS } from "@/components/video-player/controls/utils/scrub";
 import {
   getActiveVideoPlayer,
   useSettings,
@@ -23,9 +24,10 @@ export const GestureControls: React.FC<Props> = ({ ...props }) => {
 
   const { settings, updateSettings, pluginSettings } = useSettings();
 
-  // Pinch-to-zoom and double-tap-to-seek are implemented by the native player
-  // only (iOS by default, Android opt-in) — the JS player has neither, and the
-  // Siri remote has no equivalent, so the rows stay hidden everywhere else.
+  // Pinch-to-zoom is implemented by the native player only (the JS player
+  // has none) and the Siri remote has no equivalent, so its row stays hidden
+  // everywhere else. Double tap exists in both players; the scrub rows below
+  // are the JS chrome's.
   const isNativeTouchPlayer = useMemo(
     () =>
       !Platform.isTV && getActiveVideoPlayer(settings) === VideoPlayer.Native,
@@ -59,6 +61,48 @@ export const GestureControls: React.FC<Props> = ({ ...props }) => {
       },
     ],
     [settings?.holdToSpeedRate, updateSettings],
+  );
+
+  const scrubSpanLabel = (seconds: number) =>
+    seconds === 0
+      ? t("home.settings.gesture_controls.scrub_span_whole")
+      : t("home.settings.gesture_controls.scrub_span_minutes", {
+          minutes: seconds / 60,
+        });
+
+  const scrubSpanOptions = useMemo(
+    () => [
+      {
+        options: SCRUB_SPAN_OPTIONS.map((seconds) => ({
+          type: "radio" as const,
+          label:
+            seconds === 0
+              ? t("home.settings.gesture_controls.scrub_span_whole")
+              : t("home.settings.gesture_controls.scrub_span_minutes", {
+                  minutes: seconds / 60,
+                }),
+          value: seconds,
+          selected: seconds === settings?.scrubSpanSeconds,
+          onPress: () => updateSettings({ scrubSpanSeconds: seconds }),
+        })),
+      },
+    ],
+    [settings?.scrubSpanSeconds, updateSettings, t],
+  );
+
+  const doubleTapSecondsOptions = useMemo(
+    () => [
+      {
+        options: [5, 10, 15, 20, 30, 60].map((seconds) => ({
+          type: "radio" as const,
+          label: t("home.settings.gesture_controls.seconds_value", { seconds }),
+          value: seconds,
+          selected: seconds === settings?.doubleTapSeekSeconds,
+          onPress: () => updateSettings({ doubleTapSeekSeconds: seconds }),
+        })),
+      },
+    ],
+    [settings?.doubleTapSeekSeconds, updateSettings, t],
   );
 
   if (!settings) return null;
@@ -191,7 +235,7 @@ export const GestureControls: React.FC<Props> = ({ ...props }) => {
           </ListItem>
         )}
 
-        {isNativeTouchPlayer && (
+        {!Platform.isTV && (
           <ListItem
             title={t("home.settings.gesture_controls.double_tap_to_seek")}
             subtitle={t(
@@ -204,6 +248,93 @@ export const GestureControls: React.FC<Props> = ({ ...props }) => {
               disabled={pluginSettings?.enableDoubleTapToSeek?.locked}
               onValueChange={(enableDoubleTapToSeek) =>
                 updateSettings({ enableDoubleTapToSeek })
+              }
+            />
+          </ListItem>
+        )}
+
+        {/* The classic (JS) chrome only: the native player scrubs by its own rules */}
+        {!Platform.isTV && !isNativeTouchPlayer && (
+          <ListItem
+            title={t("home.settings.gesture_controls.double_tap_seconds")}
+            subtitle={t(
+              "home.settings.gesture_controls.double_tap_seconds_description",
+            )}
+          >
+            <PlatformDropdown
+              groups={doubleTapSecondsOptions}
+              trigger={
+                <View className='flex flex-row items-center justify-between pl-3 py-1.5'>
+                  <Text className='mr-1 text-[#8E8D91]'>
+                    {t("home.settings.gesture_controls.seconds_value", {
+                      seconds: settings.doubleTapSeekSeconds,
+                    })}
+                  </Text>
+                  <Ionicons
+                    name='chevron-expand-sharp'
+                    size={18}
+                    color='#5A5960'
+                  />
+                </View>
+              }
+              title={t("home.settings.gesture_controls.double_tap_seconds")}
+            />
+          </ListItem>
+        )}
+
+        {!Platform.isTV && !isNativeTouchPlayer && (
+          <ListItem
+            title={t("home.settings.gesture_controls.scrub_span")}
+            subtitle={t(
+              "home.settings.gesture_controls.scrub_span_description",
+            )}
+          >
+            <PlatformDropdown
+              groups={scrubSpanOptions}
+              trigger={
+                <View className='flex flex-row items-center justify-between pl-3 py-1.5'>
+                  <Text className='mr-1 text-[#8E8D91]'>
+                    {scrubSpanLabel(settings.scrubSpanSeconds)}
+                  </Text>
+                  <Ionicons
+                    name='chevron-expand-sharp'
+                    size={18}
+                    color='#5A5960'
+                  />
+                </View>
+              }
+              title={t("home.settings.gesture_controls.scrub_span")}
+            />
+          </ListItem>
+        )}
+
+        {!Platform.isTV && !isNativeTouchPlayer && (
+          <ListItem
+            title={t("home.settings.gesture_controls.fine_scrub")}
+            subtitle={t(
+              "home.settings.gesture_controls.fine_scrub_description",
+            )}
+          >
+            <SettingSwitch
+              value={settings.enableFineScrub}
+              onValueChange={(enableFineScrub) =>
+                updateSettings({ enableFineScrub })
+              }
+            />
+          </ListItem>
+        )}
+
+        {!Platform.isTV && !isNativeTouchPlayer && (
+          <ListItem
+            title={t("home.settings.gesture_controls.scrub_haptics")}
+            subtitle={t(
+              "home.settings.gesture_controls.scrub_haptics_description",
+            )}
+          >
+            <SettingSwitch
+              value={settings.enableScrubHaptics}
+              onValueChange={(enableScrubHaptics) =>
+                updateSettings({ enableScrubHaptics })
               }
             />
           </ListItem>

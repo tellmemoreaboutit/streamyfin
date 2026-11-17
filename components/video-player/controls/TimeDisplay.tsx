@@ -9,6 +9,13 @@ interface TimeDisplayProps {
   remainingTime: number;
 }
 
+// Footnote size, tabular digits and the same whites as the native bottom bar
+const LABEL = {
+  fontSize: 13,
+  color: "rgba(255,255,255,0.85)",
+  fontVariant: ["tabular-nums" as const],
+};
+
 /**
  * Displays current time and remaining time.
  * MPV player uses milliseconds for time values.
@@ -32,15 +39,17 @@ export const TimeDisplay: FC<TimeDisplayProps> = ({
   };
 
   return (
-    <View className='flex flex-row items-center justify-between mt-2'>
-      <Text className='text-[12px] text-neutral-400'>
-        {formatTimeString(currentTime, "ms")}
-      </Text>
+    <View className='flex flex-row items-start justify-between mt-1.5'>
+      <Text style={LABEL}>{formatTimeString(currentTime, "ms")}</Text>
       <View className='flex flex-col items-end'>
-        <Text className='text-[12px] text-neutral-400'>
-          -{formatTimeString(remainingTime, "ms")}
-        </Text>
-        <Text className='text-[10px] text-neutral-500 opacity-70'>
+        <Text style={LABEL}>-{formatTimeString(remainingTime, "ms")}</Text>
+        <Text
+          style={{
+            fontSize: 10,
+            color: "rgba(255,255,255,0.55)",
+            fontVariant: ["tabular-nums"],
+          }}
+        >
           {t("player.ends_at", { time: getFinishTime() })}
         </Text>
       </View>

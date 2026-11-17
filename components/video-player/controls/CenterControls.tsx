@@ -7,7 +7,7 @@ import { useControlsSafeAreaInsets } from "@/hooks/useControlsSafeAreaInsets";
 import { useSettings } from "@/utils/atoms/settings";
 import AudioSlider from "./AudioSlider";
 import BrightnessSlider from "./BrightnessSlider";
-import { ICON_SIZES } from "./constants";
+import { CHROME, ICON_SIZES } from "./constants";
 
 interface CenterControlsProps {
   showControls: boolean;
@@ -25,6 +25,32 @@ interface CenterControlsProps {
   goToPreviousChapter?: () => void;
   goToNextChapter?: () => void;
 }
+
+const sideButton = {
+  width: CHROME.SIDE_BUTTON,
+  height: CHROME.SIDE_BUTTON,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+};
+const playButton = {
+  width: CHROME.PLAY_BUTTON,
+  height: CHROME.PLAY_BUTTON,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+};
+const glyphBox = {
+  position: "relative" as const,
+  justifyContent: "center" as const,
+  alignItems: "center" as const,
+};
+// The skip seconds drawn inside the arrow, like the numbered SF glyphs
+const seekNumber = {
+  position: "absolute" as const,
+  color: "white",
+  fontSize: 11,
+  fontWeight: "bold" as const,
+  bottom: 7,
+};
 
 export const CenterControls: FC<CenterControlsProps> = ({
   showControls,
@@ -52,10 +78,14 @@ export const CenterControls: FC<CenterControlsProps> = ({
         left: insets.left,
         right: insets.right,
         flexDirection: "row",
-        justifyContent: "space-between",
+        // Native row: centred buttons with fixed spacing (TV keeps its spread)
+        justifyContent: Platform.isTV ? "space-between" : "center",
         alignItems: "center",
-        transform: [{ translateY: -22.5 }],
-        paddingHorizontal: hasChapters ? "18%" : "28%",
+        gap: Platform.isTV ? 0 : hasChapters ? 14 : 28,
+        transform: [
+          { translateY: Platform.isTV ? -22.5 : -CHROME.PLAY_BUTTON / 2 },
+        ],
+        paddingHorizontal: Platform.isTV ? (hasChapters ? "18%" : "28%") : 0,
       }}
       pointerEvents={showControls ? "box-none" : "none"}
     >
@@ -74,33 +104,17 @@ export const CenterControls: FC<CenterControlsProps> = ({
       )}
 
       {!Platform.isTV && (
-        <TouchableOpacity onPress={handleSkipBackward}>
-          <View
-            style={{
-              position: "relative",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
+        <TouchableOpacity onPress={handleSkipBackward} style={sideButton}>
+          <View style={glyphBox}>
             <Ionicons
               name='refresh-outline'
-              size={ICON_SIZES.CENTER}
+              size={CHROME.SEEK_ICON}
               color='white'
               style={{
                 transform: [{ scaleY: -1 }, { rotate: "180deg" }],
               }}
             />
-            <Text
-              style={{
-                position: "absolute",
-                color: "white",
-                fontSize: 16,
-                fontWeight: "bold",
-                bottom: 10,
-              }}
-            >
-              {settings?.rewindSkipTime}
-            </Text>
+            <Text style={seekNumber}>{settings?.rewindSkipTime}</Text>
           </View>
         </TouchableOpacity>
       )}
@@ -109,22 +123,27 @@ export const CenterControls: FC<CenterControlsProps> = ({
         <TouchableOpacity
           onPress={goToPreviousChapter}
           disabled={!hasPreviousChapter}
-          style={{ opacity: hasPreviousChapter ? 1 : 0.3 }}
+          style={[sideButton, { opacity: hasPreviousChapter ? 1 : 0.3 }]}
         >
-          <Ionicons
-            name='play-back'
-            size={ICON_SIZES.CENTER - 10}
-            color='white'
-          />
+          <Ionicons name='play-back' size={CHROME.JUMP_ICON} color='white' />
         </TouchableOpacity>
       )}
 
-      <View style={Platform.isTV ? { flex: 1, alignItems: "center" } : {}}>
-        <TouchableOpacity onPress={togglePlay}>
+      <View
+        style={
+          Platform.isTV
+            ? { flex: 1, alignItems: "center" }
+            : { width: CHROME.PLAY_BUTTON, height: CHROME.PLAY_BUTTON }
+        }
+      >
+        <TouchableOpacity
+          onPress={togglePlay}
+          style={Platform.isTV ? undefined : playButton}
+        >
           {!isBuffering ? (
             <Ionicons
               name={isPlaying ? "pause" : "play"}
-              size={ICON_SIZES.CENTER}
+              size={Platform.isTV ? ICON_SIZES.CENTER : CHROME.PLAY_ICON}
               color='white'
             />
           ) : (
@@ -137,41 +156,21 @@ export const CenterControls: FC<CenterControlsProps> = ({
         <TouchableOpacity
           onPress={goToNextChapter}
           disabled={!hasNextChapter}
-          style={{ opacity: hasNextChapter ? 1 : 0.3 }}
+          style={[sideButton, { opacity: hasNextChapter ? 1 : 0.3 }]}
         >
-          <Ionicons
-            name='play-forward'
-            size={ICON_SIZES.CENTER - 10}
-            color='white'
-          />
+          <Ionicons name='play-forward' size={CHROME.JUMP_ICON} color='white' />
         </TouchableOpacity>
       )}
 
       {!Platform.isTV && (
-        <TouchableOpacity onPress={handleSkipForward}>
-          <View
-            style={{
-              position: "relative",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
+        <TouchableOpacity onPress={handleSkipForward} style={sideButton}>
+          <View style={glyphBox}>
             <Ionicons
               name='refresh-outline'
-              size={ICON_SIZES.CENTER}
+              size={CHROME.SEEK_ICON}
               color='white'
             />
-            <Text
-              style={{
-                position: "absolute",
-                color: "white",
-                fontSize: 16,
-                fontWeight: "bold",
-                bottom: 10,
-              }}
-            >
-              {settings?.forwardSkipTime}
-            </Text>
+            <Text style={seekNumber}>{settings?.forwardSkipTime}</Text>
           </View>
         </TouchableOpacity>
       )}

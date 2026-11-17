@@ -22,7 +22,7 @@ export const VersionsButton: FC<{ progress?: SharedValue<number> }> = ({
       expoUIConfig={{}}
       bottomSheetConfig={{ enablePanDownToClose: true }}
       trigger={
-        <View className='aspect-square flex flex-col rounded-xl items-center justify-center p-2'>
+        <View className='flex flex-col items-center justify-center w-11 h-11'>
           <Ionicons
             name='layers-outline'
             size={ICON_SIZES.HEADER}

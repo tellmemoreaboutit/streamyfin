@@ -3,16 +3,7 @@ import { useCallback, useRef, useState } from "react";
 import type { SharedValue } from "react-native-reanimated";
 import { msToTicks, ticksToSeconds } from "@/utils/time";
 import { CONTROLS_CONSTANTS } from "../constants";
-
-/**
- * Target of a drag anywhere on the video (native player parity): the full
- * screen width maps to the full duration, starting from where the drag began.
- */
-export const surfaceScrubTarget = (
-  startMs: number,
-  fraction: number,
-  durationMs: number,
-) => Math.min(Math.max(startMs + fraction * durationMs, 0), durationMs);
+import { crossedMark, scrubStep } from "../utils/scrub";
 
 interface UseVideoSliderProps {
   progress: SharedValue<number>;
@@ -43,7 +34,7 @@ export function useVideoSlider({
   const [time, setTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
   const wasPlayingRef = useRef(false);
   const lastProgressRef = useRef<number>(0);
-  const surfaceScrub = useRef({ startMs: 0, valueMs: 0 });
+  const surfaceScrub = useRef({ lastFraction: 0, valueMs: 0 });
 
   const handleSliderStart = useCallback(() => {
     if (!showControls) {
@@ -119,22 +110,38 @@ export function useVideoSlider({
   const beginSurfaceScrub = useCallback(() => {
     setIsSliding(true);
     wasPlayingRef.current = isPlaying;
-    surfaceScrub.current = {
-      startMs: progress.value,
-      valueMs: progress.value,
-    };
+    surfaceScrub.current = { lastFraction: 0, valueMs: progress.value };
     pause();
     isSeeking.value = true;
   }, [isPlaying, pause, progress, isSeeking]);
 
+  // `fraction` is the total horizontal travel as a share of the screen width;
+  // it is applied incrementally so a change of `rate` (fine scrubbing) never
+  // moves what was already scrubbed. `marks` (ms) tick `onMark` when passed.
   const moveSurfaceScrub = useCallback(
-    (fraction: number, durationMs: number) => {
-      const value = surfaceScrubTarget(
-        surfaceScrub.current.startMs,
-        fraction,
+    (
+      fraction: number,
+      durationMs: number,
+      opts: {
+        spanMs: number;
+        rate: number;
+        marks?: number[];
+        onMark?: () => void;
+      },
+    ) => {
+      const state = surfaceScrub.current;
+      const value = scrubStep(
+        state.valueMs,
+        fraction - state.lastFraction,
+        opts.spanMs,
+        opts.rate,
         durationMs,
       );
-      surfaceScrub.current.valueMs = value;
+      if (opts.marks && crossedMark(state.valueMs, value, opts.marks)) {
+        opts.onMark?.();
+      }
+      state.lastFraction = fraction;
+      state.valueMs = value;
       handleSliderChange(value);
       return value;
     },

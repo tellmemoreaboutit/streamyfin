@@ -8,8 +8,10 @@ import { HeaderButton } from "@/components/common/HeaderButton";
 import { Text } from "@/components/common/Text";
 import { ListGroup } from "@/components/list/ListGroup";
 import { ListItem } from "@/components/list/ListItem";
+import { PlatformDropdown } from "@/components/PlatformDropdown";
 import { useDismissKeyboardOnLeave } from "@/hooks/useDismissKeyboardOnLeave";
 import { useSettings } from "@/utils/atoms/settings";
+import { SLOWMO_FACTORS } from "@/utils/slowmo";
 
 export default function SlowmoSettingsPage() {
   useDismissKeyboardOnLeave();
@@ -59,6 +61,29 @@ export default function SlowmoSettingsPage() {
               autoCapitalize='none'
               textContentType='URL'
               onChangeText={setUrl}
+            />
+          </ListItem>
+          <ListItem title={t("slowmo.default_factor")}>
+            <PlatformDropdown
+              title={t("slowmo.default_factor")}
+              groups={[
+                {
+                  options: SLOWMO_FACTORS.map((factor) => ({
+                    type: "radio" as const,
+                    label: `x${factor}`,
+                    value: String(factor),
+                    selected: (settings?.slowmoLastFactor ?? 4) === factor,
+                    onPress: () => updateSettings({ slowmoLastFactor: factor }),
+                  })),
+                },
+              ]}
+              trigger={
+                <View className='flex flex-row items-center pl-3 py-1.5'>
+                  <Text className='text-[#8E8D91]'>
+                    x{settings?.slowmoLastFactor ?? 4}
+                  </Text>
+                </View>
+              }
             />
           </ListItem>
           <ListItem title={t("slowmo.token")}>

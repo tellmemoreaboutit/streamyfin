@@ -9,6 +9,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Text } from "@/components/common/Text";
 import {
+  slowmoLoopAtom,
   slowmoPendingStartAtom,
   slowmoSegmentsAtom,
   slowmoSelectedAtom,
@@ -20,11 +21,16 @@ import {
   rangeFractions,
   setSegmentEdge,
 } from "@/utils/slowmo";
+import { useSlowedParts } from "./hooks/useSlowedParts";
 
 const BAR_HEIGHT = 16;
 const MIN_WIDTH_PX = 6;
 const COLOR = "rgba(245,158,11,0.65)";
 const COLOR_SELECTED = "#fbbf24";
+// Parts a slowmo version has slowed down (informational, not editable)
+const COLOR_PART = "rgba(56,189,248,0.7)";
+const PART_HEIGHT = 5;
+const LOOP_RATES = [1, 0.5, 0.25] as const;
 
 interface Props {
   // Playback position in milliseconds
@@ -41,6 +47,8 @@ export const SlowmoTimeline: FC<Props> = ({ progress, durationMs }) => {
   const pendingStart = useAtomValue(slowmoPendingStartAtom);
   const [selected, setSelected] = useAtom(slowmoSelectedAtom);
   const [width, setWidth] = useState(0);
+  const [loop, setLoop] = useAtom(slowmoLoopAtom);
+  const parts = useSlowedParts();
   const durationSec = durationMs / 1000;
 
   const pendingStyle = useAnimatedStyle(() => {
@@ -53,7 +61,8 @@ export const SlowmoTimeline: FC<Props> = ({ progress, durationMs }) => {
     };
   }, [pendingStart, durationSec]);
 
-  if (segments.length === 0 && pendingStart === null) return null;
+  const editing = segments.length > 0 || pendingStart !== null;
+  if (!editing && parts.length === 0) return null;
 
   const seg = selected !== null ? segments[selected] : undefined;
   const update = (
@@ -66,7 +75,7 @@ export const SlowmoTimeline: FC<Props> = ({ progress, durationMs }) => {
       key={key ?? label}
       onPress={onPress}
       hitSlop={6}
-      className='px-2 py-1 rounded-lg bg-neutral-700 mx-0.5'
+      className='px-2 py-1 rounded-full bg-white/20 mx-0.5'
     >
       <Text className='text-xs'>{label}</Text>
     </TouchableOpacity>
@@ -75,7 +84,10 @@ export const SlowmoTimeline: FC<Props> = ({ progress, durationMs }) => {
   return (
     <View className='w-full'>
       {seg && selected !== null && (
-        <View className='rounded-xl bg-black/70 p-2 mb-1'>
+        <View
+          className='p-2 mb-1'
+          style={{ borderRadius: 14, backgroundColor: "rgba(0,0,0,0.6)" }}
+        >
           <View className='flex flex-row items-center justify-between mb-1'>
             <Text className='text-xs font-bold'>
               {selected + 1}. {formatSeconds(seg.start)} -{" "}
@@ -124,12 +136,71 @@ export const SlowmoTimeline: FC<Props> = ({ progress, durationMs }) => {
               )}
             </View>
           ))}
+          <View className='flex flex-row items-center my-0.5'>
+            <TouchableOpacity
+              hitSlop={6}
+              onPress={() => setLoop((l) => ({ ...l, on: !l.on }))}
+              className='flex flex-row items-center px-2 py-1 rounded-full mx-0.5'
+              style={{
+                backgroundColor: loop.on
+                  ? COLOR_SELECTED
+                  : "rgba(255,255,255,0.2)",
+              }}
+            >
+              <Ionicons
+                name='repeat'
+                size={14}
+                color={loop.on ? "black" : "white"}
+              />
+              <Text
+                className='text-xs ml-1'
+                style={{ color: loop.on ? "black" : "white" }}
+              >
+                {t("slowmo.loop")}
+              </Text>
+            </TouchableOpacity>
+            {LOOP_RATES.map((rate) => (
+              <TouchableOpacity
+                key={rate}
+                hitSlop={6}
+                onPress={() => setLoop({ on: true, rate })}
+                className='px-2 py-1 rounded-full mx-0.5'
+                style={{
+                  backgroundColor:
+                    loop.rate === rate
+                      ? "rgba(255,255,255,0.4)"
+                      : "rgba(255,255,255,0.15)",
+                }}
+              >
+                <Text className='text-xs'>{rate}x</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       )}
       <View
-        style={{ height: BAR_HEIGHT }}
+        style={{ height: editing ? BAR_HEIGHT : PART_HEIGHT }}
         onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
       >
+        {parts.map((p, i) => {
+          const r = rangeFractions(p.start, p.end, durationSec);
+          if (!r) return null;
+          return (
+            <View
+              key={`part-${i}`}
+              pointerEvents='none'
+              style={{
+                position: "absolute",
+                bottom: 0,
+                height: PART_HEIGHT,
+                left: r.left * width,
+                width: Math.max(r.width * width, 3),
+                borderRadius: 3,
+                backgroundColor: COLOR_PART,
+              }}
+            />
+          );
+        })}
         {segments.map((s, i) => {
           const r = rangeFractions(s.start, s.end, durationSec);
           if (!r) return null;

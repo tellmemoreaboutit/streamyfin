@@ -11,13 +11,13 @@ import { useVolumeAndBrightness } from "./hooks/useVolumeAndBrightness";
 interface Props {
   showControls: boolean;
   onToggleControls: () => void;
-  onSkipForward: () => void;
-  onSkipBackward: () => void;
+  /** Signed seconds, from a double tap. */
+  onSeekBy: (seconds: number) => void;
   onHoldSpeedStart?: () => void;
   onHoldSpeedEnd?: () => void;
   /** Horizontal drag = scrub: start, travel as a share of the width, end. */
   onScrubStart?: () => void;
-  onScrubMove?: (fraction: number) => void;
+  onScrubMove?: (fraction: number, offsetY: number) => void;
   onScrubEnd?: (cancelled: boolean) => void;
   isPlaying?: boolean;
   videoTopOffset?: number;
@@ -34,10 +34,8 @@ interface FeedbackState {
 const DOUBLE_TAP_WINDOW_MS = 250;
 
 export const GestureOverlay = ({
-  showControls,
   onToggleControls,
-  onSkipForward,
-  onSkipBackward,
+  onSeekBy,
   onHoldSpeedStart,
   onHoldSpeedEnd,
   onScrubStart,
@@ -56,9 +54,6 @@ export const GestureOverlay = ({
     text: "",
   });
   const [fadeAnim] = useState(new Animated.Value(0));
-  const [scrimOpacity] = useState(
-    new Animated.Value(CONTROLS_CONSTANTS.CONTROLS_SCRIM_OPACITY),
-  );
   const isDraggingRef = useRef(false);
   const isHoldSpeedActiveRef = useRef(false);
   const hideScheduledRef = useRef(false);
@@ -161,23 +156,21 @@ export const GestureOverlay = ({
     },
   });
 
-  const handleSkipForward = useCallback(() => {
-    lightHaptic();
-    // Defer all actions to avoid useInsertionEffect warning
-    requestAnimationFrame(() => {
-      onSkipForward();
-      showFeedback("play-forward", `+${settings.forwardSkipTime}s`);
-    });
-  }, [settings.forwardSkipTime, lightHaptic, onSkipForward, showFeedback]);
-
-  const handleSkipBackward = useCallback(() => {
-    lightHaptic();
-    // Defer all actions to avoid useInsertionEffect warning
-    requestAnimationFrame(() => {
-      onSkipBackward();
-      showFeedback("play-back", `-${settings.rewindSkipTime}s`);
-    });
-  }, [settings.rewindSkipTime, lightHaptic, onSkipBackward, showFeedback]);
+  const handleDoubleTapSeek = useCallback(
+    (forward: boolean) => {
+      const seconds = settings.doubleTapSeekSeconds || 10;
+      lightHaptic();
+      // Defer all actions to avoid useInsertionEffect warning
+      requestAnimationFrame(() => {
+        onSeekBy(forward ? seconds : -seconds);
+        showFeedback(
+          forward ? "play-forward" : "play-back",
+          `${forward ? "+" : "-"}${seconds}s`,
+        );
+      });
+    },
+    [settings.doubleTapSeekSeconds, lightHaptic, onSeekBy, showFeedback],
+  );
 
   // With double tap to seek on, a single tap waits out the double-tap window
   // (like the native player); off, it toggles at once.
@@ -197,8 +190,7 @@ export const GestureOverlay = ({
       if (pendingTapRef.current) {
         clearTimeout(pendingTapRef.current);
         pendingTapRef.current = null;
-        if (x >= windowWidth / 2) handleSkipForward();
-        else handleSkipBackward();
+        handleDoubleTapSeek(x >= windowWidth / 2);
         return;
       }
       pendingTapRef.current = setTimeout(() => {
@@ -210,8 +202,7 @@ export const GestureOverlay = ({
       settings.enableDoubleTapToSeek,
       onToggleControls,
       windowWidth,
-      handleSkipForward,
-      handleSkipBackward,
+      handleDoubleTapSeek,
     ],
   );
 
@@ -221,7 +212,8 @@ export const GestureOverlay = ({
     onScrubStart?.();
   }, [lightHaptic, onScrubStart]);
   const handleScrubMove = useCallback(
-    (deltaX: number) => onScrubMove?.(deltaX / windowWidth),
+    (deltaX: number, deltaY: number) =>
+      onScrubMove?.(deltaX / windowWidth, deltaY),
     [onScrubMove, windowWidth],
   );
 
@@ -234,11 +226,6 @@ export const GestureOverlay = ({
     // Defer all actions to avoid useInsertionEffect warning
     requestAnimationFrame(() => {
       onHoldSpeedStart?.();
-      Animated.timing(scrimOpacity, {
-        toValue: CONTROLS_CONSTANTS.HOLD_SPEED_DIM_OPACITY,
-        duration: CONTROLS_CONSTANTS.HOLD_SPEED_DIM_DURATION,
-        useNativeDriver: true,
-      }).start();
       showFeedback(
         "play-forward",
         `${settings.holdToSpeedRate}x`,
@@ -254,7 +241,6 @@ export const GestureOverlay = ({
     lightHaptic,
     onHoldSpeedStart,
     showFeedback,
-    scrimOpacity,
   ]);
 
   const handleHoldSpeedEnd = useCallback(() => {
@@ -263,14 +249,9 @@ export const GestureOverlay = ({
     // Defer all actions to avoid useInsertionEffect warning
     requestAnimationFrame(() => {
       onHoldSpeedEnd?.();
-      Animated.timing(scrimOpacity, {
-        toValue: CONTROLS_CONSTANTS.CONTROLS_SCRIM_OPACITY,
-        duration: CONTROLS_CONSTANTS.HOLD_SPEED_DIM_DURATION,
-        useNativeDriver: true,
-      }).start();
       hideDragFeedback();
     });
-  }, [onHoldSpeedEnd, hideDragFeedback, scrimOpacity]);
+  }, [onHoldSpeedEnd, hideDragFeedback]);
 
   // A hold must not survive the overlay being removed, since entering
   // picture in picture unmounts the controls mid-gesture
@@ -363,23 +344,6 @@ export const GestureOverlay = ({
 
   return (
     <>
-      {/* Dims the video behind the controls; touches go to the surface below */}
-      {showControls && (
-        <Animated.View
-          pointerEvents='none'
-          style={{
-            position: "absolute",
-            width: windowWidth,
-            height: windowHeight,
-            backgroundColor: "black",
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-            opacity: scrimOpacity,
-          }}
-        />
-      )}
       {/* Gesture surface, live with the controls shown too so a drag scrubs
           from anywhere on the video */}
       <Pressable
@@ -427,12 +391,11 @@ export const GestureOverlay = ({
                           : -50,
                   },
                 ],
-            backgroundColor: isTopFeedback
-              ? "rgba(0, 0, 0, 0.5)"
-              : "rgba(0, 0, 0, 0.8)",
-            paddingHorizontal: isTopFeedback ? 10 : 16,
-            paddingVertical: isTopFeedback ? 5 : 12,
-            borderRadius: isTopFeedback ? 6 : 8,
+            // Same pill as the native player: black 55 % capsule
+            backgroundColor: "rgba(0, 0, 0, 0.55)",
+            paddingHorizontal: isTopFeedback ? 14 : 18,
+            paddingVertical: isTopFeedback ? 8 : 12,
+            borderRadius: 999,
             flexDirection: "row",
             alignItems: "center",
             opacity: fadeAnim,

@@ -1,40 +1,28 @@
 import { getLibraryApi } from "@jellyfin/sdk/lib/utils/api";
-import { useQuery } from "@tanstack/react-query";
 import { useAtomValue } from "jotai";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner-native";
 import { usePlayMedia } from "@/hooks/usePlayMedia";
+import { useSlowmoJobs } from "@/hooks/useSlowmoJobs";
 import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
-import { useSettings } from "@/utils/atoms/settings";
-import { getSlowmoJobs, type SlowmoJob } from "@/utils/slowmo";
-
-const POLL_MS = 10_000;
+import { slowmoPlayerItemAtom } from "@/utils/atoms/slowmoSelection";
+import { firstPartStartSeconds, type SlowmoJob } from "@/utils/slowmo";
 
 // While the app is open, watches the Slowmo jobs and offers to play a version
-// the moment its job finishes. No push: a closed app is not notified.
+// the moment its job finishes. No push: a closed app is not notified, and
+// there is no OS notification to tap, the toast action is the way in.
 export const SlowmoNotifier = () => {
   const { t } = useTranslation();
-  const { settings } = useSettings();
   const api = useAtomValue(apiAtom);
   const user = useAtomValue(userAtom);
   const playMedia = usePlayMedia();
+  const playerItem = useAtomValue(slowmoPlayerItemAtom);
+  const playerItemRef = useRef(playerItem);
+  playerItemRef.current = playerItem;
   const seen = useRef<Map<string, SlowmoJob["status"]> | null>(null);
 
-  const { data } = useQuery({
-    queryKey: ["slowmo-jobs", settings.slowmoServerUrl],
-    queryFn: () => getSlowmoJobs(settings),
-    enabled: !!settings.slowmoServerUrl,
-    // Polls only while something is pending; sending a job invalidates the key.
-    // gcTime 0: a polling query must not be persisted (see learned facts).
-    gcTime: 0,
-    refetchInterval: (query) =>
-      query.state.data?.some(
-        (j) => j.status === "queued" || j.status === "running",
-      )
-        ? POLL_MS
-        : false,
-  });
+  const { data } = useSlowmoJobs();
 
   useEffect(() => {
     if (!data) return;
@@ -43,9 +31,11 @@ export const SlowmoNotifier = () => {
     if (!previous) return; // first load only records the state
     for (const job of data) {
       if (job.status !== "done" || previous.get(job.id) === "done") continue;
+      // The player of that movie shows its own toast
+      if (playerItemRef.current === job.itemId) continue;
       toast.success(`${t("slowmo.ready")}: ${job.name}`, {
         duration: 15_000,
-        action: { label: t("slowmo.play"), onClick: () => play(job) },
+        action: { label: t("slowmo.watch"), onClick: () => play(job) },
       });
     }
   }, [data]);
@@ -70,7 +60,9 @@ export const SlowmoNotifier = () => {
         itemId: job.itemId,
         mediaSourceId: source.Id,
         offline: false,
-        playbackPositionTicks: 0,
+        playbackPositionTicks: Math.round(
+          firstPartStartSeconds(job) * 10_000_000,
+        ),
       },
       { item: res.data },
     );

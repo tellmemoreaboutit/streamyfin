@@ -18,6 +18,13 @@ export type SlowmoJob = {
   error: string | null;
   createdAt: string;
   output?: string | null;
+  steps?: number | null;
+  /** Seconds left, null while unknown. */
+  eta?: number | null;
+  startedAt?: string | null;
+  elapsed?: number | null;
+  queuePos?: number | null;
+  startsIn?: number | null;
 };
 
 // Calls the Slowmo service; the optional token goes in X-Slower-Token.
@@ -192,3 +199,37 @@ export const setSegmentEdge = (
   edge: "start" | "end",
   value: number,
 ): SlowmoSegment => nudgeSegment(seg, edge, value - seg[edge]);
+
+/**
+ * Where the slowed parts sit in the slowed version's own timeline (seconds):
+ * each marked segment starts where the original start maps to and lasts
+ * factor times longer. A whole-movie job has no parts to point out.
+ */
+export const slowedParts = (
+  job: Pick<SlowmoJob, "segments" | "factor">,
+): SlowmoSegment[] =>
+  sorted(job.segments).map((s) => {
+    const start = originalToSlowmo(s.start, job.segments, job.factor);
+    return { start, end: start + job.factor * (s.end - s.start) };
+  });
+
+/** Start of the first part after the position, or null. */
+export const nextPartStart = (pos: number, parts: SlowmoSegment[]) =>
+  parts.find((p) => p.start > pos + 0.5)?.start ?? null;
+
+/** Start of the part the position is in (past its first 1.5 s) or before it. */
+export const prevPartStart = (pos: number, parts: SlowmoSegment[]) =>
+  [...parts].reverse().find((p) => p.start < pos - 1.5)?.start ?? null;
+
+/** Queued or running jobs of one movie. */
+export const pendingJobsForItem = (jobs: SlowmoJob[], itemId?: string | null) =>
+  jobs.filter(
+    (j) =>
+      j.itemId === itemId && (j.status === "queued" || j.status === "running"),
+  );
+
+/** Where to start a finished version: a moment before its first slowed part. */
+export const firstPartStartSeconds = (
+  job: Pick<SlowmoJob, "segments" | "factor">,
+  lead = 2,
+) => Math.max((slowedParts(job)[0]?.start ?? 0) - lead, 0);

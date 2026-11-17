@@ -33,6 +33,7 @@ import { useSettings } from "@/utils/atoms/settings";
 import { playerQualityOptions } from "@/utils/bitrate";
 import { resolveRouteTrackIndexes } from "@/utils/directPlayer/routeTrackIndexes";
 import { createSlowmoJob, SLOWMO_FACTORS } from "@/utils/slowmo";
+import { ICON_SIZES } from "../constants";
 import { usePlayerContext } from "../contexts/PlayerContext";
 import { useVideoContext } from "../contexts/VideoContext";
 import { useVersionSwitch } from "../hooks/useVersionSwitch";
@@ -235,7 +236,7 @@ const DropdownView = ({
 }: DropdownViewProps) => {
   const { subtitleTracks, audioTracks } = useVideoContext();
   const { item, mediaSource, downloadedItem } = usePlayerContext();
-  const { settings, pluginSettings } = useSettings();
+  const { settings, updateSettings, pluginSettings } = useSettings();
   const subtitleScaleModalRef = useRef<BottomSheetModal>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -416,8 +417,10 @@ const DropdownView = ({
       groups.push({
         title: t("slowmo.whole_movie"),
         options: SLOWMO_FACTORS.map((factor) => ({
-          type: "action" as const,
+          type: "radio" as const,
           label: `x${factor}`,
+          value: String(factor),
+          selected: (settings.slowmoLastFactor ?? 4) === factor,
           onPress: () =>
             createSlowmoJob(settings, {
               itemId: slowmoItemId,
@@ -425,6 +428,7 @@ const DropdownView = ({
               factor,
             })
               .then(() => {
+                updateSettings({ slowmoLastFactor: factor });
                 toast.success(t("slowmo.queued"));
                 queryClient.invalidateQueries({ queryKey: ["slowmo-jobs"] });
               })
@@ -483,8 +487,12 @@ const DropdownView = ({
   // Memoize the trigger to prevent re-renders
   const trigger = useMemo(
     () => (
-      <View className='aspect-square flex flex-col rounded-xl items-center justify-center p-2'>
-        <Ionicons name='ellipsis-horizontal' size={24} color={"white"} />
+      <View className='flex flex-col items-center justify-center w-11 h-11'>
+        <Ionicons
+          name='ellipsis-horizontal-circle-outline'
+          size={ICON_SIZES.HEADER + 2}
+          color={"white"}
+        />
       </View>
     ),
     [],

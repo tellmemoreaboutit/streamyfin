@@ -8,3 +8,11 @@ export const slowmoSegmentsAtom = atom<SlowmoSegment[]>([]);
 export const slowmoPendingStartAtom = atom<number | null>(null);
 // Index of the segment open in the timeline editor
 export const slowmoSelectedAtom = atom<number | null>(null);
+// Loop the segment open in the editor, optionally slowed down to preview it
+export const slowmoLoopAtom = atom<{ on: boolean; rate: number }>({
+  on: false,
+  rate: 1,
+});
+// Movie the player has open: its own Slowmo UI announces finished jobs, so the
+// global notifier stays quiet for it.
+export const slowmoPlayerItemAtom = atom<string | null>(null);

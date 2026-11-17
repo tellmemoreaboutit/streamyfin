@@ -424,6 +424,8 @@ export type Settings = {
   /** Slowmo (RIFE) service base URL and optional token. */
   slowmoServerUrl?: string;
   slowmoToken?: string;
+  /** Factor last sent, preselected next time. */
+  slowmoLastFactor?: number;
   streamyStatsServerUrl?: string;
   streamyStatsMovieRecommendations?: boolean;
   streamyStatsSeriesRecommendations?: boolean;
@@ -517,6 +519,14 @@ export type Settings = {
   holdToSpeedRate: number;
   enablePinchToZoom: boolean;
   enableDoubleTapToSeek: boolean;
+  /** Classic player: seconds a double tap seeks. */
+  doubleTapSeekSeconds: number;
+  /** Classic player: seconds a full-width drag scrubs, 0 = whole movie. */
+  scrubSpanSeconds: number;
+  /** Classic player: finger away from the drag start = finer scrubbing. */
+  enableFineScrub: boolean;
+  /** Classic player: haptic tick crossing a chapter or slowmo edge. */
+  enableScrubHaptics: boolean;
   hideVolumeSlider: boolean;
   hideBrightnessSlider: boolean;
   usePopularPlugin: boolean;
@@ -643,6 +653,7 @@ export const defaultValues: Settings = {
   marlinServerUrl: "",
   slowmoServerUrl: "",
   slowmoToken: "",
+  slowmoLastFactor: 4,
   streamyStatsServerUrl: "",
   streamyStatsMovieRecommendations: false,
   streamyStatsSeriesRecommendations: false,
@@ -725,6 +736,10 @@ export const defaultValues: Settings = {
   holdToSpeedRate: 2.0,
   enablePinchToZoom: true,
   enableDoubleTapToSeek: false,
+  doubleTapSeekSeconds: 10,
+  scrubSpanSeconds: 300,
+  enableFineScrub: true,
+  enableScrubHaptics: true,
   hideVolumeSlider: false,
   hideBrightnessSlider: false,
   usePopularPlugin: true,

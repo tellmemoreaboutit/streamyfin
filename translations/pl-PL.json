@@ -288,7 +288,18 @@
         "hide_volume_slider": "Ukryj suwak głośności",
         "hide_volume_slider_description": "Ukryj suwak głośności w odtwarzaczu",
         "hide_brightness_slider": "Ukryj suwak jasności",
-        "hide_brightness_slider_description": "Ukryj suwak jasności w odtwarzaczu"
+        "hide_brightness_slider_description": "Ukryj suwak jasności w odtwarzaczu",
+        "scrub_span": "Zasięg przewijania",
+        "scrub_span_description": "Jaką część filmu obejmuje przeciągnięcie przez całą szerokość ekranu. Podczas przeciągania przesuń palec w górę lub w dół, aby przewijać dokładniej.",
+        "scrub_span_whole": "Cały film",
+        "scrub_span_minutes": "{{minutes}} min",
+        "fine_scrub": "Dokładne przewijanie",
+        "fine_scrub_description": "Im dalej palec jest w pionie od miejsca rozpoczęcia przeciągania, tym wolniejsze i dokładniejsze przewijanie",
+        "scrub_haptics": "Wibracje przy przewijaniu",
+        "scrub_haptics_description": "Krótka wibracja, gdy przewijanie mija rozdział lub krawędź fragmentu Slowmo",
+        "double_tap_seconds": "Przewinięcie podwójnym dotknięciem",
+        "double_tap_seconds_description": "O ile sekund przewija podwójne dotknięcie",
+        "seconds_value": "{{seconds}} s"
       },
       "audio": {
         "audio_title": "Dźwięk",
@@ -950,7 +961,12 @@
     "segment_skipped_outro": "Pominięto napisy końcowe",
     "segment_skipped_recap": "Pominięto podsumowanie",
     "segment_skipped_commercial": "Pominięto reklamę",
-    "segment_skipped_preview": "Pominięto zapowiedź"
+    "segment_skipped_preview": "Pominięto zapowiedź",
+    "scrub_half": "Przewijanie z połową prędkości",
+    "scrub_quarter": "Przewijanie z ćwiartką prędkości",
+    "scrub_fine": "Dokładne przewijanie",
+    "frame_back": "Poprzednia klatka",
+    "frame_forward": "Następna klatka"
   },
   "chapters": {
     "title": "Rozdziały",
@@ -1519,6 +1535,12 @@
     "no_jobs": "Brak zadań",
     "open_web_gui": "Otwórz w Web GUI",
     "set_to_now": "Ustaw na teraz",
-    "cancel": "Anuluj"
+    "cancel": "Anuluj",
+    "watch": "Oglądaj",
+    "in_queue": "w kolejce",
+    "loop": "Pętla",
+    "prev_part": "Poprzedni zwolniony fragment",
+    "next_part": "Następny zwolniony fragment",
+    "default_factor": "Domyślne spowolnienie"
   }
 }

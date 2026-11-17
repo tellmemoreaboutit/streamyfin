@@ -1,10 +1,15 @@
 import {
+  firstPartStartSeconds,
   mapPositionBetweenVersions,
+  nextPartStart,
   nudgeSegment,
   originalToSlowmo,
+  pendingJobsForItem,
+  prevPartStart,
   rangeFractions,
   type SlowmoJob,
   setSegmentEdge,
+  slowedParts,
   slowmoToOriginal,
   slowmoWebGuiUrl,
 } from "./slowmo";
@@ -85,5 +90,56 @@ describe("timeline helpers", () => {
     expect(slowmoWebGuiUrl("http://h:1/", "abc", 12.34)).toBe(
       "http://h:1/#/item/abc?t=12.3",
     );
+  });
+});
+
+describe("slowed parts of a version", () => {
+  // 10-20 and 40-50 slowed x4: the first part starts at 10 and lasts 40 s,
+  // the second starts at 40 + 30 = 70 and lasts 40 s
+  const parts = slowedParts({ segments: [...segs].reverse(), factor: 4 });
+
+  test("maps the segments into the slowed timeline", () => {
+    expect(parts).toEqual([
+      { start: 10, end: 50 },
+      { start: 70, end: 110 },
+    ]);
+  });
+
+  test("a whole-movie job has none", () => {
+    expect(slowedParts({ segments: [], factor: 4 })).toEqual([]);
+  });
+
+  test("next and previous part jumps", () => {
+    expect(nextPartStart(0, parts)).toBe(10);
+    expect(nextPartStart(10, parts)).toBe(70);
+    expect(nextPartStart(100, parts)).toBeNull();
+    expect(prevPartStart(100, parts)).toBe(70);
+    // just after a start: back goes to the part before, not to itself
+    expect(prevPartStart(71, parts)).toBe(10);
+    expect(prevPartStart(5, parts)).toBeNull();
+  });
+});
+
+describe("pendingJobsForItem", () => {
+  const job = (id: string, itemId: string, status: SlowmoJob["status"]) =>
+    ({ id, itemId, status }) as SlowmoJob;
+  test("keeps queued and running jobs of that movie", () => {
+    const jobs = [
+      job("a", "m1", "running"),
+      job("b", "m1", "done"),
+      job("c", "m2", "queued"),
+      job("d", "m1", "queued"),
+    ];
+    expect(pendingJobsForItem(jobs, "m1").map((j) => j.id)).toEqual(["a", "d"]);
+  });
+});
+
+describe("firstPartStartSeconds", () => {
+  test("a moment before the first part, 0 for a whole-movie job", () => {
+    expect(firstPartStartSeconds({ segments: segs, factor: 4 })).toBe(8);
+    expect(
+      firstPartStartSeconds({ segments: [{ start: 1, end: 2 }], factor: 4 }),
+    ).toBe(0);
+    expect(firstPartStartSeconds({ segments: [], factor: 4 })).toBe(0);
   });
 });

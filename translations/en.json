@@ -289,7 +289,18 @@
         "hide_volume_slider": "Hide volume slider",
         "hide_volume_slider_description": "Hide the volume slider in the video player",
         "hide_brightness_slider": "Hide brightness slider",
-        "hide_brightness_slider_description": "Hide the brightness slider in the video player"
+        "hide_brightness_slider_description": "Hide the brightness slider in the video player",
+        "scrub_span": "Scrub distance",
+        "scrub_span_description": "How much of the movie a full-width drag on the video covers. Move the finger up or down while dragging to scrub more finely.",
+        "scrub_span_whole": "Whole movie",
+        "scrub_span_minutes": "{{minutes}} min",
+        "fine_scrub": "Fine scrubbing",
+        "fine_scrub_description": "The further the finger is from where the drag began vertically, the slower and finer the scrub",
+        "scrub_haptics": "Scrub haptics",
+        "scrub_haptics_description": "A tick when scrubbing crosses a chapter or a Slowmo segment edge",
+        "double_tap_seconds": "Double tap skip",
+        "double_tap_seconds_description": "How far a double tap seeks",
+        "seconds_value": "{{seconds}} s"
       },
       "audio": {
         "audio_title": "Audio",
@@ -910,7 +921,13 @@
     "no_jobs": "No jobs",
     "open_web_gui": "Open in web GUI",
     "set_to_now": "Set to now",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "watch": "Watch",
+    "in_queue": "queued",
+    "loop": "Loop",
+    "prev_part": "Previous slowed part",
+    "next_part": "Next slowed part",
+    "default_factor": "Default slowdown"
   },
   "custom_links": {
     "could_not_open_link": "Could not open this link",
@@ -1017,7 +1034,12 @@
     "segment_skipped_outro": "Credits skipped",
     "segment_skipped_recap": "Recap skipped",
     "segment_skipped_commercial": "Commercial skipped",
-    "segment_skipped_preview": "Preview skipped"
+    "segment_skipped_preview": "Preview skipped",
+    "scrub_half": "Half-speed scrubbing",
+    "scrub_quarter": "Quarter-speed scrubbing",
+    "scrub_fine": "Fine scrubbing",
+    "frame_back": "Previous frame",
+    "frame_forward": "Next frame"
   },
   "chapters": {
     "title": "Chapters",

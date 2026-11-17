@@ -5,6 +5,7 @@ import Animated, {
   useAnimatedStyle,
 } from "react-native-reanimated";
 import { Text } from "@/components/common/Text";
+import { CHROME } from "./constants";
 import { TrickplayBubble } from "./TrickplayBubble";
 
 // TrickplayBubble hangs 62px left of its anchor and is 225px wide
@@ -44,16 +45,32 @@ export const SurfaceScrubPreview: FC<Props> = ({
   return (
     <Animated.View
       pointerEvents='none'
-      style={[{ position: "absolute", bottom: 25, width: 0, height: 0 }, style]}
+      // Just above the track, which is centred in the taller touch area
+      style={[
+        {
+          position: "absolute",
+          bottom:
+            CHROME.SCRUBBER_HEIGHT / 2 + CHROME.TRACK_HEIGHT_SCRUBBING / 2 + 6,
+          width: 0,
+          height: 0,
+        },
+        style,
+      ]}
     >
       {bubble.trickPlayUrl && bubble.trickplayInfo ? (
         <TrickplayBubble {...bubble} />
       ) : (
         <View
-          className='absolute bg-black/70 rounded-lg px-3 py-1'
-          style={{ bottom: 0, left: -30 }}
+          className='absolute rounded-full px-3 py-1'
+          style={{
+            bottom: 0,
+            left: -30,
+            backgroundColor: "rgba(0,0,0,0.6)",
+          }}
         >
-          <Text className='font-bold'>{label}</Text>
+          <Text style={{ fontSize: 13, fontVariant: ["tabular-nums"] }}>
+            {label}
+          </Text>
         </View>
       )}
     </Animated.View>

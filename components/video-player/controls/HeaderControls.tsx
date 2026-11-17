@@ -4,13 +4,15 @@ import { type FC, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Platform, TouchableOpacity, View } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
+import { Text } from "@/components/common/Text";
 import useRouter from "@/hooks/useAppRouter";
 import { useControlsSafeAreaInsets } from "@/hooks/useControlsSafeAreaInsets";
 import { useHaptic } from "@/hooks/useHaptic";
 import { useOrientation } from "@/hooks/useOrientation";
 import { OrientationLock } from "@/packages/expo-screen-orientation";
 import { useSettings } from "@/utils/atoms/settings";
-import { HEADER_LAYOUT, ICON_SIZES } from "./constants";
+import { episodeSubtitle } from "@/utils/episodeLabel";
+import { CHROME, ICON_SIZES } from "./constants";
 import DropdownView from "./dropdown/DropdownView";
 import { SlowmoControl } from "./SlowmoControl";
 import { PlaybackSpeedScope } from "./utils/playback-speed-settings";
@@ -74,6 +76,12 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
   const { orientation, lockOrientation } = useOrientation();
   const [isTogglingOrientation, setIsTogglingOrientation] = useState(false);
   const { settings } = useSettings();
+  const subtitle =
+    item?.Type === "Episode"
+      ? episodeSubtitle(t, item)
+      : item?.Type === "Audio"
+        ? item.Album
+        : item?.ProductionYear;
 
   const onClose = async () => {
     lightHapticFeedback();
@@ -112,37 +120,47 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
           top: insets.top,
           left: insets.left,
           right: insets.right,
-          padding: HEADER_LAYOUT.CONTAINER_PADDING,
+          paddingHorizontal: CHROME.SIDE_PADDING,
+          paddingVertical: 8,
         },
       ]}
       pointerEvents={showControls ? "auto" : "none"}
-      className='flex flex-row justify-between'
+      className='flex flex-row items-center'
     >
-      <View className='mr-auto' pointerEvents='box-none'>
-        {shouldShowPlayerMenu({ isTV: Platform.isTV }) && (
-          <View pointerEvents='auto'>
-            <DropdownView
-              playbackSpeed={playbackSpeed}
-              setPlaybackSpeed={setPlaybackSpeed}
-              subtitleDelay={subtitleDelay}
-              onSubtitleDelayChange={onSubtitleDelayChange}
-              showTechnicalInfo={showTechnicalInfo}
-              onToggleTechnicalInfo={onToggleTechnicalInfo}
-              onOpenSubtitleScale={onOpenSubtitleScale}
-              progress={progress}
-            />
-          </View>
-        )}
+      <TouchableOpacity
+        onPress={onClose}
+        className='flex flex-col items-center justify-center w-11 h-11'
+        accessibilityLabel={t("common.close")}
+      >
+        <Ionicons name='close' size={ICON_SIZES.HEADER + 3} color='white' />
+      </TouchableOpacity>
+
+      {/* Title block, as in the native top bar */}
+      <View className='flex-1 ml-2 mr-3 justify-center' pointerEvents='none'>
+        <Text
+          numberOfLines={1}
+          style={{ fontSize: 15, fontWeight: "600", color: "white" }}
+        >
+          {item?.Name}
+        </Text>
+        {subtitle ? (
+          <Text
+            numberOfLines={1}
+            style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}
+          >
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
 
-      <View className='flex flex-row items-center space-x-2'>
+      <View className='flex flex-row items-center shrink-0'>
         {/* Rotate toggle is Android-only: iOS does not reliably rotate the
             player back to portrait programmatically. */}
         {Platform.OS === "android" && (
           <TouchableOpacity
             onPress={toggleOrientation}
             disabled={isTogglingOrientation}
-            className='aspect-square flex flex-col rounded-xl items-center justify-center p-2'
+            className='flex flex-col items-center justify-center w-11 h-11'
             accessibilityLabel={t("accessibility.toggle_orientation")}
             accessibilityHint={t("accessibility.toggle_orientation_hint")}
           >
@@ -161,7 +179,7 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
         {!Platform.isTV && startPictureInPicture && (
           <TouchableOpacity
             onPress={startPictureInPicture}
-            className='aspect-square flex flex-col rounded-xl items-center justify-center p-2'
+            className='flex flex-col items-center justify-center w-11 h-11'
           >
             <MaterialIcons
               name='picture-in-picture'
@@ -173,7 +191,7 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
         {item?.Type === "Episode" && (
           <TouchableOpacity
             onPress={switchOnEpisodeMode}
-            className='aspect-square flex flex-col rounded-xl items-center justify-center p-2'
+            className='flex flex-col items-center justify-center w-11 h-11'
           >
             <Ionicons name='list' size={ICON_SIZES.HEADER} color='white' />
           </TouchableOpacity>
@@ -181,7 +199,7 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
         {previousItem && (
           <TouchableOpacity
             onPress={goToPreviousItem}
-            className='aspect-square flex flex-col rounded-xl items-center justify-center p-2'
+            className='flex flex-col items-center justify-center w-11 h-11'
           >
             <Ionicons
               name='play-skip-back'
@@ -193,7 +211,7 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
         {nextItem && (
           <TouchableOpacity
             onPress={() => goToNextItem({ isAutoPlay: false })}
-            className='aspect-square flex flex-col rounded-xl items-center justify-center p-2'
+            className='flex flex-col items-center justify-center w-11 h-11'
           >
             <Ionicons
               name='play-skip-forward'
@@ -208,12 +226,18 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
           onToggle={onZoomToggle ?? (() => {})}
           disabled={!onZoomToggle}
         />
-        <TouchableOpacity
-          onPress={onClose}
-          className='aspect-square flex flex-col rounded-xl items-center justify-center p-2'
-        >
-          <Ionicons name='close' size={ICON_SIZES.HEADER} color='white' />
-        </TouchableOpacity>
+        {shouldShowPlayerMenu({ isTV: Platform.isTV }) && (
+          <DropdownView
+            playbackSpeed={playbackSpeed}
+            setPlaybackSpeed={setPlaybackSpeed}
+            subtitleDelay={subtitleDelay}
+            onSubtitleDelayChange={onSubtitleDelayChange}
+            showTechnicalInfo={showTechnicalInfo}
+            onToggleTechnicalInfo={onToggleTechnicalInfo}
+            onOpenSubtitleScale={onOpenSubtitleScale}
+            progress={progress}
+          />
+        )}
       </View>
     </View>
   );

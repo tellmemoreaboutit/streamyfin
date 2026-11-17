@@ -55,12 +55,13 @@ export function useVersionSwitch(positionMs?: SharedValue<number>) {
   const sources = fresh?.MediaSources ?? item.MediaSources ?? [];
 
   const switchSource = useCallback(
-    async (source: MediaSourceInfo) => {
+    async (source: MediaSourceInfo, startSeconds?: number) => {
       if (source.Id === mediaSourceIdRef.current) return;
       // Slowmo versions have another timeline: map the position through the
       // job that made them; without the server the position is kept.
-      let seconds = positionMs ? positionMs.value / 1000 : null;
-      if (seconds !== null) {
+      let seconds =
+        startSeconds ?? (positionMs ? positionMs.value / 1000 : null);
+      if (seconds !== null && startSeconds === undefined) {
         try {
           const jobs = await getSlowmoJobs(settings);
           seconds = mapPositionBetweenVersions(
@@ -147,5 +148,5 @@ export function useVersionSwitch(positionMs?: SharedValue<number>) {
     [sources, slowmoSources, mediaSource?.Id, switchSource, confirmDelete, t],
   );
 
-  return { sources, slowmoSources, versionsGroup };
+  return { sources, slowmoSources, versionsGroup, switchSource, refetch };
 }

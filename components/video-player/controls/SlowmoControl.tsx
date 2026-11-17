@@ -15,6 +15,7 @@ import {
 import { useHaptic } from "@/hooks/useHaptic";
 import { useSettings } from "@/utils/atoms/settings";
 import {
+  slowmoLoopAtom,
   slowmoPendingStartAtom,
   slowmoSegmentsAtom,
   slowmoSelectedAtom,
@@ -42,13 +43,14 @@ interface Props {
 // opens the web GUI at the current position.
 export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
   const { t } = useTranslation();
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
   const { mediaSource } = usePlayerContext();
   const queryClient = useQueryClient();
   const haptic = useHaptic("light");
   const [segments, setSegments] = useAtom(slowmoSegmentsAtom);
   const [pendingStart, setPendingStart] = useAtom(slowmoPendingStartAtom);
   const [, setSelected] = useAtom(slowmoSelectedAtom);
+  const [, setLoop] = useAtom(slowmoLoopAtom);
 
   // The selection belongs to this player session
   useEffect(
@@ -56,8 +58,9 @@ export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
       setSegments([]);
       setPendingStart(null);
       setSelected(null);
+      setLoop({ on: false, rate: 1 });
     },
-    [setSegments, setPendingStart, setSelected],
+    [setSegments, setPendingStart, setSelected, setLoop],
   );
 
   const onMark = () => {
@@ -81,6 +84,7 @@ export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
     createSlowmoJob(settings, { itemId: item.Id, segments, factor })
       .then(() => {
         toast.success(t("slowmo.queued"));
+        updateSettings({ slowmoLastFactor: factor });
         queryClient.invalidateQueries({ queryKey: ["slowmo-jobs"] });
         setSegments([]);
         setSelected(null);
@@ -124,8 +128,10 @@ export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
             {
               title: t("slowmo.send"),
               options: SLOWMO_FACTORS.map((factor) => ({
-                type: "action" as const,
+                type: "radio" as const,
                 label: `x${factor}`,
+                value: String(factor),
+                selected: (settings.slowmoLastFactor ?? 4) === factor,
                 onPress: () => send(factor),
               })),
             },
@@ -138,6 +144,7 @@ export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
       t,
       settings.slowmoServerUrl,
       settings.slowmoToken,
+      settings.slowmoLastFactor,
       item.Id,
       mediaSource,
       queryClient,
@@ -148,7 +155,7 @@ export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
     <View className='flex flex-row items-center'>
       <TouchableOpacity
         onPress={onMark}
-        className='aspect-square flex flex-col rounded-xl items-center justify-center p-2'
+        className='flex flex-col items-center justify-center w-11 h-11'
       >
         <Ionicons
           name='speedometer'
@@ -162,7 +169,7 @@ export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
         expoUIConfig={{}}
         bottomSheetConfig={{ enablePanDownToClose: true }}
         trigger={
-          <View className='px-2 py-1 rounded-xl bg-neutral-800'>
+          <View className='px-2 py-1 rounded-full bg-white/20'>
             {segments.length > 0 ? (
               <Text className='text-xs'>{segments.length}</Text>
             ) : (

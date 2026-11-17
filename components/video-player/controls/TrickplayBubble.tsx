@@ -78,9 +78,11 @@ export const TrickplayBubble: FC<TrickplayBubbleProps> = ({
           height: tileHeight,
           alignSelf: "center",
           transform: [{ scale: finalScale }],
-          borderRadius: 5,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: "rgba(255,255,255,0.3)",
         }}
-        className='bg-neutral-800 overflow-hidden'
+        className='bg-black/80 overflow-hidden'
       >
         <Image
           cachePolicy='memory-disk'
@@ -97,50 +99,39 @@ export const TrickplayBubble: FC<TrickplayBubbleProps> = ({
           source={{ uri: url }}
           contentFit='cover'
         />
-        {/*
-         * Bottom-right overlay (Jellyfin web style) — chapter name (small,
-         * faded) above the timestamp (small, bold). Sits on top of the
-         * trickplay frame inside the same overflow:hidden container so it
-         * always stays within the bubble bounds.
-         */}
-        <View
-          pointerEvents='none'
+      </View>
+      {/* Chapter and time under the thumbnail, as in the native bubble */}
+      {chapterName ? (
+        <Text
+          numberOfLines={1}
           style={{
-            position: "absolute",
-            left: 4,
-            bottom: 3,
-            alignItems: "flex-start",
-            paddingHorizontal: 3,
-            paddingVertical: 1,
-            borderRadius: 3,
-            backgroundColor: "rgba(0,0,0,0.55)",
-            maxWidth: tileWidth - 8,
+            color: "rgba(255,255,255,0.9)",
+            fontSize: 11,
+            marginTop: (tileHeight * (finalScale - 1)) / 2 + 4,
+            maxWidth: tileWidth * finalScale,
           }}
         >
-          {chapterName ? (
-            <Text
-              numberOfLines={1}
-              style={{
-                color: "#fff",
-                fontSize: 7,
-                opacity: 0.85,
-                lineHeight: 9,
-              }}
-            >
-              {chapterName}
-            </Text>
-          ) : null}
-          <Text
-            style={{
-              color: "#fff",
-              fontSize: 8,
-              fontWeight: "600",
-              lineHeight: 10,
-            }}
-          >
-            {timeStr}
-          </Text>
-        </View>
+          {chapterName}
+        </Text>
+      ) : null}
+      <View
+        style={{
+          marginTop: chapterName ? 2 : (tileHeight * (finalScale - 1)) / 2 + 4,
+          paddingHorizontal: 8,
+          paddingVertical: 2,
+          borderRadius: 999,
+          backgroundColor: "rgba(0,0,0,0.6)",
+        }}
+      >
+        <Text
+          style={{
+            color: "#fff",
+            fontSize: 12,
+            fontVariant: ["tabular-nums"],
+          }}
+        >
+          {timeStr}
+        </Text>
       </View>
     </View>
   );

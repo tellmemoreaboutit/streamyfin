@@ -16,8 +16,8 @@ export interface SwipeGestureOptions {
   onVerticalDragEnd?: (side: "left" | "right") => void;
   /** Continuous horizontal drag (scrub). Replaces the discrete swipe when set. */
   onHorizontalDragStart?: () => void;
-  /** Total horizontal travel since the drag began, in px. */
-  onHorizontalDragMove?: (deltaX: number) => void;
+  /** Total travel since the drag began, in px (deltaY drives fine scrubbing). */
+  onHorizontalDragMove?: (deltaX: number, deltaY: number) => void;
   /** `cancelled` is true when the system took the touch away. */
   onHorizontalDragEnd?: (cancelled: boolean) => void;
   onTap?: (x: number) => void;
@@ -165,7 +165,7 @@ export const useGestureDetection = ({
       }
 
       if (isHorizontalDragging.current) {
-        onHorizontalDragMove?.(deltaX);
+        onHorizontalDragMove?.(deltaX, deltaY);
       }
 
       // Continue vertical drag if already dragging
