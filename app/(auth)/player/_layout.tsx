@@ -39,6 +39,10 @@ export default function Layout() {
             autoHideHomeIndicator: true,
             title: "",
             animation: "fade",
+            // Our own exit swipe (top zone) replaces the system back swipe,
+            // which closed the player on any horizontal swipe
+            gestureEnabled: false,
+            fullScreenGestureEnabled: false,
           }}
         />
       </Stack>

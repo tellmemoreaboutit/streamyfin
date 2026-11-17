@@ -177,6 +177,9 @@ export const mapPositionBetweenVersions = (
  * of the ends does not matter. Null when the duration is unknown.
  */
 export const rangeFractions = (a: number, b: number, durationSec: number) => {
+  // Called from useAnimatedStyle (UI thread): without this directive the call
+  // throws there, which closes a release build as soon as a start is marked.
+  "worklet";
   if (!(durationSec > 0)) return null;
   const clamp = (v: number) => Math.min(Math.max(v / durationSec, 0), 1);
   const left = clamp(Math.min(a, b));

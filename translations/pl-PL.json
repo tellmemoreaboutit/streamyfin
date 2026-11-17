@@ -237,8 +237,8 @@
       },
       "media_controls": {
         "media_controls_title": "Sterowanie multimediami",
-        "forward_skip_length": "Długość przewijania do przodu",
-        "rewind_length": "Długość przewijania do tyłu",
+        "forward_skip_length": "Długość przewijania do przodu (przyciski i podwójne dotknięcie po prawej)",
+        "rewind_length": "Długość przewijania do tyłu (przyciski i podwójne dotknięcie po lewej)",
         "seconds_unit": "s"
       },
       "video_player": {
@@ -297,9 +297,11 @@
         "fine_scrub_description": "Im dalej palec jest w pionie od miejsca rozpoczęcia przeciągania, tym wolniejsze i dokładniejsze przewijanie",
         "scrub_haptics": "Wibracje przy przewijaniu",
         "scrub_haptics_description": "Krótka wibracja, gdy przewijanie mija rozdział lub krawędź fragmentu Slowmo",
-        "double_tap_seconds": "Przewinięcie podwójnym dotknięciem",
-        "double_tap_seconds_description": "O ile sekund przewija podwójne dotknięcie",
-        "seconds_value": "{{seconds}} s"
+        "exit_swipe": "Przesunięcie, aby zamknąć",
+        "exit_swipe_description": "Szybkie przesunięcie palcem w poziomie w górnej części wideo zamyka odtwarzacz",
+        "exit_swipe_zone": "Obszar przesunięcia do zamknięcia",
+        "exit_swipe_zone_description": "Wysokość górnego obszaru jako część ekranu",
+        "percent_value": "{{percent}} %"
       },
       "audio": {
         "audio_title": "Dźwięk",

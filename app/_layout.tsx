@@ -362,6 +362,8 @@ function Layout() {
                                           name='(auth)/player'
                                           options={{
                                             headerShown: false,
+                                            gestureEnabled: false,
+                                            fullScreenGestureEnabled: false,
                                             title: "",
                                             header: () => null,
                                           }}

@@ -236,8 +236,8 @@
       },
       "media_controls": {
         "media_controls_title": "Media controls",
-        "forward_skip_length": "Forward skip length",
-        "rewind_length": "Rewind length",
+        "forward_skip_length": "Forward skip length (buttons and double tap right)",
+        "rewind_length": "Rewind length (buttons and double tap left)",
         "seconds_unit": "s"
       },
       "video_player": {
@@ -298,9 +298,11 @@
         "fine_scrub_description": "The further the finger is from where the drag began vertically, the slower and finer the scrub",
         "scrub_haptics": "Scrub haptics",
         "scrub_haptics_description": "A tick when scrubbing crosses a chapter or a Slowmo segment edge",
-        "double_tap_seconds": "Double tap skip",
-        "double_tap_seconds_description": "How far a double tap seeks",
-        "seconds_value": "{{seconds}} s"
+        "exit_swipe": "Swipe to close",
+        "exit_swipe_description": "A quick horizontal swipe in the top part of the video closes the player",
+        "exit_swipe_zone": "Swipe to close area",
+        "exit_swipe_zone_description": "Height of the top area, as a share of the screen",
+        "percent_value": "{{percent}} %"
       },
       "audio": {
         "audio_title": "Audio",

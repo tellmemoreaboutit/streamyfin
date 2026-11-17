@@ -519,8 +519,10 @@ export type Settings = {
   holdToSpeedRate: number;
   enablePinchToZoom: boolean;
   enableDoubleTapToSeek: boolean;
-  /** Classic player: seconds a double tap seeks. */
-  doubleTapSeekSeconds: number;
+  /** Classic player: a horizontal swipe in the top zone closes the player. */
+  exitSwipeEnabled: boolean;
+  /** Classic player: height of that zone in % of the screen height. */
+  exitSwipeZonePercent: number;
   /** Classic player: seconds a full-width drag scrubs, 0 = whole movie. */
   scrubSpanSeconds: number;
   /** Classic player: finger away from the drag start = finer scrubbing. */
@@ -735,8 +737,9 @@ export const defaultValues: Settings = {
   enableHoldToSpeed: true,
   holdToSpeedRate: 2.0,
   enablePinchToZoom: true,
-  enableDoubleTapToSeek: false,
-  doubleTapSeekSeconds: 10,
+  enableDoubleTapToSeek: true,
+  exitSwipeEnabled: true,
+  exitSwipeZonePercent: 20,
   scrubSpanSeconds: 300,
   enableFineScrub: true,
   enableScrubHaptics: true,

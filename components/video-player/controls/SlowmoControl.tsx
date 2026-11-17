@@ -8,10 +8,7 @@ import { Linking, TouchableOpacity, View } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
 import { toast } from "sonner-native";
 import { Text } from "@/components/common/Text";
-import {
-  type OptionGroup,
-  PlatformDropdown,
-} from "@/components/PlatformDropdown";
+import { PlatformDropdown } from "@/components/PlatformDropdown";
 import { useHaptic } from "@/hooks/useHaptic";
 import { useSettings } from "@/utils/atoms/settings";
 import {
@@ -25,11 +22,11 @@ import {
   getSlowmoJobs,
   isSlowmoSource,
   mapPositionBetweenVersions,
-  SLOWMO_FACTORS,
   slowmoWebGuiUrl,
 } from "@/utils/slowmo";
 import { ICON_SIZES } from "./constants";
 import { usePlayerContext } from "./contexts/PlayerContext";
+import { buildSlowmoMenuGroups } from "./utils/slowmoMenu";
 
 interface Props {
   item: BaseItemDto;
@@ -112,32 +109,16 @@ export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
     ).catch((e) => toast.error(`${t("slowmo.failed")}: ${e.message}`));
   };
 
-  const groups = useMemo<OptionGroup[]>(
-    () => [
-      {
-        options: [
-          {
-            type: "action" as const,
-            label: t("slowmo.open_web_gui"),
-            onPress: openWebGui,
-          },
-        ],
-      },
-      ...(segments.length > 0
-        ? [
-            {
-              title: t("slowmo.send"),
-              options: SLOWMO_FACTORS.map((factor) => ({
-                type: "radio" as const,
-                label: `x${factor}`,
-                value: String(factor),
-                selected: (settings.slowmoLastFactor ?? 4) === factor,
-                onPress: () => send(factor),
-              })),
-            },
-          ]
-        : []),
-    ],
+  const groups = useMemo(
+    () =>
+      buildSlowmoMenuGroups({
+        t,
+        segmentCount: segments.length,
+        lastFactor: settings.slowmoLastFactor,
+        hasServerUrl: !!settings.slowmoServerUrl,
+        onOpenWebGui: openWebGui,
+        onSend: send,
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       segments,
@@ -149,6 +130,20 @@ export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
       mediaSource,
       queryClient,
     ],
+  );
+
+  // Stable element: PlatformDropdown is memoized on the trigger's identity
+  const trigger = useMemo(
+    () => (
+      <View className='px-2 py-1 rounded-full bg-white/20'>
+        {segments.length > 0 ? (
+          <Text className='text-xs'>{segments.length}</Text>
+        ) : (
+          <Ionicons name='globe-outline' size={14} color='white' />
+        )}
+      </View>
+    ),
+    [segments.length],
   );
 
   return (
@@ -168,15 +163,7 @@ export const SlowmoControl: FC<Props> = ({ item, progress, pause }) => {
         groups={groups}
         expoUIConfig={{}}
         bottomSheetConfig={{ enablePanDownToClose: true }}
-        trigger={
-          <View className='px-2 py-1 rounded-full bg-white/20'>
-            {segments.length > 0 ? (
-              <Text className='text-xs'>{segments.length}</Text>
-            ) : (
-              <Ionicons name='globe-outline' size={14} color='white' />
-            )}
-          </View>
-        }
+        trigger={trigger}
       />
     </View>
   );

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { GestureResponderEvent } from "react-native";
+import { isExitSwipe } from "../utils/gestures";
 
 export interface SwipeGestureOptions {
   minDistance?: number;
@@ -21,6 +22,9 @@ export interface SwipeGestureOptions {
   /** `cancelled` is true when the system took the touch away. */
   onHorizontalDragEnd?: (cancelled: boolean) => void;
   onTap?: (x: number) => void;
+  /** Touches starting above this y (px) never scrub or hold; a quick horizontal swipe there fires onTopSwipe. */
+  topSwipeZoneHeight?: number;
+  onTopSwipe?: () => void;
   onLongPressStart?: () => void;
   onLongPressEnd?: () => void;
   windowWidth?: number;
@@ -40,6 +44,8 @@ export const useGestureDetection = ({
   onHorizontalDragMove,
   onHorizontalDragEnd,
   onTap,
+  topSwipeZoneHeight = 0,
+  onTopSwipe,
   onLongPressStart,
   onLongPressEnd,
   windowWidth = 400,
@@ -56,6 +62,7 @@ export const useGestureDetection = ({
   const longPressTimeout = useRef<number | null>(null);
   const isLongPressing = useRef(false);
   const isHorizontalDragging = useRef(false);
+  const startedInTopZone = useRef(false);
 
   const cancelLongPressTimer = useCallback(() => {
     if (longPressTimeout.current !== null) {
@@ -88,7 +95,12 @@ export const useGestureDetection = ({
 
       // Check if touch started in exclusion zones: no drag or hold there, but
       // it can still end as a tap
-      if (startY < topExclusionZone || startY > bottomExclusionZone) {
+      startedInTopZone.current = !!onTopSwipe && startY < topSwipeZoneHeight;
+      if (
+        startedInTopZone.current ||
+        startY < topExclusionZone ||
+        startY > bottomExclusionZone
+      ) {
         shouldIgnoreTouch.current = true;
         return;
       }
@@ -113,7 +125,14 @@ export const useGestureDetection = ({
         }, longPressDuration) as unknown as number;
       }
     },
-    [windowHeight, cancelLongPressTimer, longPressDuration, onLongPressStart],
+    [
+      windowHeight,
+      cancelLongPressTimer,
+      longPressDuration,
+      onLongPressStart,
+      onTopSwipe,
+      topSwipeZoneHeight,
+    ],
   );
 
   const handleTouchMove = useCallback(
@@ -201,6 +220,13 @@ export const useGestureDetection = ({
         shouldIgnoreTouch.current = false;
         const dx = event.nativeEvent.pageX - touchStartPosition.current.x;
         const dy = event.nativeEvent.pageY - touchStartPosition.current.y;
+        if (
+          startedInTopZone.current &&
+          isExitSwipe(dx, dy, Date.now() - touchStartTime.current)
+        ) {
+          onTopSwipe?.();
+          return;
+        }
         if (
           Date.now() - touchStartTime.current < 300 &&
           Math.hypot(dx, dy) < 10
@@ -295,6 +321,7 @@ export const useGestureDetection = ({
       onVerticalDragEnd,
       onHorizontalDragEnd,
       onTap,
+      onTopSwipe,
       onLongPressEnd,
       cancelLongPressTimer,
     ],

@@ -7,6 +7,7 @@ import { SettingSwitch } from "@/components/common/SettingSwitch";
 import { PlatformDropdown } from "@/components/PlatformDropdown";
 import { PLAYBACK_SPEEDS } from "@/components/PlaybackSpeedSelector";
 import DisabledSetting from "@/components/settings/DisabledSetting";
+import { EXIT_ZONE_OPTIONS } from "@/components/video-player/controls/utils/gestures";
 import { SCRUB_SPAN_OPTIONS } from "@/components/video-player/controls/utils/scrub";
 import {
   getActiveVideoPlayer,
@@ -90,19 +91,19 @@ export const GestureControls: React.FC<Props> = ({ ...props }) => {
     [settings?.scrubSpanSeconds, updateSettings, t],
   );
 
-  const doubleTapSecondsOptions = useMemo(
+  const exitZoneOptions = useMemo(
     () => [
       {
-        options: [5, 10, 15, 20, 30, 60].map((seconds) => ({
+        options: EXIT_ZONE_OPTIONS.map((percent) => ({
           type: "radio" as const,
-          label: t("home.settings.gesture_controls.seconds_value", { seconds }),
-          value: seconds,
-          selected: seconds === settings?.doubleTapSeekSeconds,
-          onPress: () => updateSettings({ doubleTapSeekSeconds: seconds }),
+          label: t("home.settings.gesture_controls.percent_value", { percent }),
+          value: percent,
+          selected: percent === settings?.exitSwipeZonePercent,
+          onPress: () => updateSettings({ exitSwipeZonePercent: percent }),
         })),
       },
     ],
-    [settings?.doubleTapSeekSeconds, updateSettings, t],
+    [settings?.exitSwipeZonePercent, updateSettings, t],
   );
 
   if (!settings) return null;
@@ -253,33 +254,53 @@ export const GestureControls: React.FC<Props> = ({ ...props }) => {
           </ListItem>
         )}
 
-        {/* The classic (JS) chrome only: the native player scrubs by its own rules */}
         {!Platform.isTV && !isNativeTouchPlayer && (
           <ListItem
-            title={t("home.settings.gesture_controls.double_tap_seconds")}
+            title={t("home.settings.gesture_controls.exit_swipe")}
             subtitle={t(
-              "home.settings.gesture_controls.double_tap_seconds_description",
+              "home.settings.gesture_controls.exit_swipe_description",
             )}
           >
-            <PlatformDropdown
-              groups={doubleTapSecondsOptions}
-              trigger={
-                <View className='flex flex-row items-center justify-between pl-3 py-1.5'>
-                  <Text className='mr-1 text-[#8E8D91]'>
-                    {t("home.settings.gesture_controls.seconds_value", {
-                      seconds: settings.doubleTapSeekSeconds,
-                    })}
-                  </Text>
-                  <Ionicons
-                    name='chevron-expand-sharp'
-                    size={18}
-                    color='#5A5960'
-                  />
-                </View>
+            <SettingSwitch
+              value={settings.exitSwipeEnabled}
+              onValueChange={(exitSwipeEnabled) =>
+                updateSettings({ exitSwipeEnabled })
               }
-              title={t("home.settings.gesture_controls.double_tap_seconds")}
             />
           </ListItem>
+        )}
+
+        {!Platform.isTV && !isNativeTouchPlayer && (
+          <DisabledSetting
+            disabled={!settings.exitSwipeEnabled}
+            showText={false}
+          >
+            <ListItem
+              title={t("home.settings.gesture_controls.exit_swipe_zone")}
+              subtitle={t(
+                "home.settings.gesture_controls.exit_swipe_zone_description",
+              )}
+            >
+              <PlatformDropdown
+                groups={exitZoneOptions}
+                trigger={
+                  <View className='flex flex-row items-center justify-between pl-3 py-1.5'>
+                    <Text className='mr-1 text-[#8E8D91]'>
+                      {t("home.settings.gesture_controls.percent_value", {
+                        percent: settings.exitSwipeZonePercent,
+                      })}
+                    </Text>
+                    <Ionicons
+                      name='chevron-expand-sharp'
+                      size={18}
+                      color='#5A5960'
+                    />
+                  </View>
+                }
+                title={t("home.settings.gesture_controls.exit_swipe_zone")}
+              />
+            </ListItem>
+          </DisabledSetting>
         )}
 
         {!Platform.isTV && !isNativeTouchPlayer && (

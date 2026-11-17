@@ -1,12 +1,26 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Pressable, useWindowDimensions } from "react-native";
+import {
+  Animated,
+  Platform,
+  Pressable,
+  useWindowDimensions,
+} from "react-native";
 import { Text } from "@/components/common/Text";
+import useRouter from "@/hooks/useAppRouter";
 import { useHaptic } from "@/hooks/useHaptic";
 import { useSettings } from "@/utils/atoms/settings";
 import { CONTROLS_CONSTANTS } from "./constants";
 import { useGestureDetection } from "./hooks/useGestureDetection";
 import { useVolumeAndBrightness } from "./hooks/useVolumeAndBrightness";
+import {
+  continuesSeekChain,
+  doubleTapSeconds,
+  doubleTapSide,
+  exitZoneHeight,
+  extendSeekChain,
+  type SeekChain,
+} from "./utils/gestures";
 
 interface Props {
   showControls: boolean;
@@ -156,20 +170,44 @@ export const GestureOverlay = ({
     },
   });
 
-  const handleDoubleTapSeek = useCallback(
-    (forward: boolean) => {
-      const seconds = settings.doubleTapSeekSeconds || 10;
+  // Repeated taps on the same side add up (YouTube style)
+  const seekChainRef = useRef<SeekChain | null>(null);
+  const seekAt = useCallback(
+    (x: number) => {
+      const signed = doubleTapSeconds(
+        x,
+        windowWidth,
+        settings.rewindSkipTime,
+        settings.forwardSkipTime,
+      );
+      if (signed === 0) return;
+      const side = doubleTapSide(x, windowWidth);
+      const chain = extendSeekChain(
+        seekChainRef.current,
+        side,
+        signed,
+        Date.now(),
+      );
+      seekChainRef.current = chain;
       lightHaptic();
       // Defer all actions to avoid useInsertionEffect warning
       requestAnimationFrame(() => {
-        onSeekBy(forward ? seconds : -seconds);
+        onSeekBy(signed);
         showFeedback(
-          forward ? "play-forward" : "play-back",
-          `${forward ? "+" : "-"}${seconds}s`,
+          signed > 0 ? "play-forward" : "play-back",
+          `${chain.total > 0 ? "+" : "-"}${Math.abs(chain.total)} s`,
+          signed > 0 ? "right" : "left",
         );
       });
     },
-    [settings.doubleTapSeekSeconds, lightHaptic, onSeekBy, showFeedback],
+    [
+      windowWidth,
+      settings.rewindSkipTime,
+      settings.forwardSkipTime,
+      lightHaptic,
+      onSeekBy,
+      showFeedback,
+    ],
   );
 
   // With double tap to seek on, a single tap waits out the double-tap window
@@ -187,10 +225,14 @@ export const GestureOverlay = ({
         onToggleControls();
         return;
       }
-      if (pendingTapRef.current) {
-        clearTimeout(pendingTapRef.current);
+      // A tap right after a double tap keeps seeking instead of toggling
+      if (
+        pendingTapRef.current ||
+        continuesSeekChain(seekChainRef.current, Date.now())
+      ) {
+        if (pendingTapRef.current) clearTimeout(pendingTapRef.current);
         pendingTapRef.current = null;
-        handleDoubleTapSeek(x >= windowWidth / 2);
+        seekAt(x);
         return;
       }
       pendingTapRef.current = setTimeout(() => {
@@ -198,12 +240,7 @@ export const GestureOverlay = ({
         onToggleControls();
       }, DOUBLE_TAP_WINDOW_MS);
     },
-    [
-      settings.enableDoubleTapToSeek,
-      onToggleControls,
-      windowWidth,
-      handleDoubleTapSeek,
-    ],
+    [settings.enableDoubleTapToSeek, onToggleControls, seekAt],
   );
 
   const scrubEnabled = settings.enableHorizontalSwipeSkip && !!onScrubStart;
@@ -316,6 +353,15 @@ export const GestureOverlay = ({
     [endBrightnessDrag, endVolumeDrag, hideDragFeedback],
   );
 
+  // Phone only: a horizontal swipe in the top zone closes the player (the
+  // system back swipe is off on this screen)
+  const router = useRouter();
+  const exitEnabled = !Platform.isTV && settings.exitSwipeEnabled;
+  const handleExit = useCallback(() => {
+    lightHaptic();
+    router.back();
+  }, [lightHaptic, router]);
+
   // Wiring the long press only while enabled keeps a disabled setting from
   // swallowing the tap, swipe and drag gestures
   const holdSpeedEnabled = settings.enableHoldToSpeed;
@@ -333,6 +379,10 @@ export const GestureOverlay = ({
     onHorizontalDragMove: scrubEnabled ? handleScrubMove : undefined,
     onHorizontalDragEnd: scrubEnabled ? onScrubEnd : undefined,
     onTap: handleTap,
+    topSwipeZoneHeight: exitEnabled
+      ? exitZoneHeight(windowHeight, settings.exitSwipeZonePercent)
+      : 0,
+    onTopSwipe: exitEnabled ? handleExit : undefined,
     onLongPressStart: holdSpeedEnabled ? handleHoldSpeedStart : undefined,
     onLongPressEnd: holdSpeedEnabled ? handleHoldSpeedEnd : undefined,
     longPressDuration: CONTROLS_CONSTANTS.HOLD_SPEED_DELAY,
