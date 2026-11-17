@@ -164,3 +164,31 @@ export const mapPositionBetweenVersions = (
     ? originalToSlowmo(original, toJob.segments, toJob.factor)
     : original;
 };
+
+/**
+ * A time range as fractions (0..1) of the timeline, clamped to it; the order
+ * of the ends does not matter. Null when the duration is unknown.
+ */
+export const rangeFractions = (a: number, b: number, durationSec: number) => {
+  if (!(durationSec > 0)) return null;
+  const clamp = (v: number) => Math.min(Math.max(v / durationSec, 0), 1);
+  const left = clamp(Math.min(a, b));
+  return { left, width: clamp(Math.max(a, b)) - left };
+};
+
+/** Deep link into the web GUI at the given position of the movie. */
+export const slowmoWebGuiUrl = (
+  base: string | undefined,
+  itemId: string,
+  seconds: number,
+) =>
+  `${(base ?? "").replace(/\/+$/, "")}/#/item/${itemId}?t=${seconds.toFixed(1)}`;
+
+export const NUDGE_STEPS = [0.1, 0.5] as const;
+
+/** Moves the whole segment's edge to an absolute position (keeps the order). */
+export const setSegmentEdge = (
+  seg: SlowmoSegment,
+  edge: "start" | "end",
+  value: number,
+): SlowmoSegment => nudgeSegment(seg, edge, value - seg[edge]);

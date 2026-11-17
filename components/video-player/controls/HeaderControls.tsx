@@ -15,6 +15,7 @@ import DropdownView from "./dropdown/DropdownView";
 import { SlowmoControl } from "./SlowmoControl";
 import { PlaybackSpeedScope } from "./utils/playback-speed-settings";
 import { shouldShowPlayerMenu } from "./utils/shouldShowPlayerMenu";
+import { VersionsButton } from "./VersionsButton";
 import { type AspectRatio } from "./VideoScalingModeSelector";
 import { ZoomToggle } from "./ZoomToggle";
 
@@ -41,6 +42,7 @@ interface HeaderControlsProps {
   onOpenSubtitleScale?: () => void;
   // Playback position in milliseconds
   progress?: SharedValue<number>;
+  pause?: () => void;
 }
 
 export const HeaderControls: FC<HeaderControlsProps> = ({
@@ -63,6 +65,7 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
   onToggleTechnicalInfo,
   onOpenSubtitleScale,
   progress,
+  pause,
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -152,8 +155,9 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
           </TouchableOpacity>
         )}
         {!!settings.slowmoServerUrl && !!progress && (
-          <SlowmoControl item={item} progress={progress} />
+          <SlowmoControl item={item} progress={progress} pause={pause} />
         )}
+        {!Platform.isTV && <VersionsButton progress={progress} />}
         {!Platform.isTV && startPictureInPicture && (
           <TouchableOpacity
             onPress={startPictureInPicture}

@@ -15,6 +15,10 @@ interface Props {
   onSkipBackward: () => void;
   onHoldSpeedStart?: () => void;
   onHoldSpeedEnd?: () => void;
+  /** Horizontal drag = scrub: start, travel as a share of the width, end. */
+  onScrubStart?: () => void;
+  onScrubMove?: (fraction: number) => void;
+  onScrubEnd?: (cancelled: boolean) => void;
   isPlaying?: boolean;
   videoTopOffset?: number;
 }
@@ -27,7 +31,7 @@ interface FeedbackState {
   placement?: "center" | "top";
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const DOUBLE_TAP_WINDOW_MS = 250;
 
 export const GestureOverlay = ({
   showControls,
@@ -36,6 +40,9 @@ export const GestureOverlay = ({
   onSkipBackward,
   onHoldSpeedStart,
   onHoldSpeedEnd,
+  onScrubStart,
+  onScrubMove,
+  onScrubEnd,
   isPlaying = true,
   videoTopOffset = 0,
 }: Props) => {
@@ -155,36 +162,68 @@ export const GestureOverlay = ({
   });
 
   const handleSkipForward = useCallback(() => {
-    if (!settings.enableHorizontalSwipeSkip) return;
     lightHaptic();
     // Defer all actions to avoid useInsertionEffect warning
     requestAnimationFrame(() => {
       onSkipForward();
       showFeedback("play-forward", `+${settings.forwardSkipTime}s`);
     });
-  }, [
-    settings.enableHorizontalSwipeSkip,
-    settings.forwardSkipTime,
-    lightHaptic,
-    onSkipForward,
-    showFeedback,
-  ]);
+  }, [settings.forwardSkipTime, lightHaptic, onSkipForward, showFeedback]);
 
   const handleSkipBackward = useCallback(() => {
-    if (!settings.enableHorizontalSwipeSkip) return;
     lightHaptic();
     // Defer all actions to avoid useInsertionEffect warning
     requestAnimationFrame(() => {
       onSkipBackward();
       showFeedback("play-back", `-${settings.rewindSkipTime}s`);
     });
-  }, [
-    settings.enableHorizontalSwipeSkip,
-    settings.rewindSkipTime,
-    lightHaptic,
-    onSkipBackward,
-    showFeedback,
-  ]);
+  }, [settings.rewindSkipTime, lightHaptic, onSkipBackward, showFeedback]);
+
+  // With double tap to seek on, a single tap waits out the double-tap window
+  // (like the native player); off, it toggles at once.
+  const pendingTapRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (pendingTapRef.current) clearTimeout(pendingTapRef.current);
+    },
+    [],
+  );
+  const handleTap = useCallback(
+    (x: number) => {
+      if (!settings.enableDoubleTapToSeek) {
+        onToggleControls();
+        return;
+      }
+      if (pendingTapRef.current) {
+        clearTimeout(pendingTapRef.current);
+        pendingTapRef.current = null;
+        if (x >= windowWidth / 2) handleSkipForward();
+        else handleSkipBackward();
+        return;
+      }
+      pendingTapRef.current = setTimeout(() => {
+        pendingTapRef.current = null;
+        onToggleControls();
+      }, DOUBLE_TAP_WINDOW_MS);
+    },
+    [
+      settings.enableDoubleTapToSeek,
+      onToggleControls,
+      windowWidth,
+      handleSkipForward,
+      handleSkipBackward,
+    ],
+  );
+
+  const scrubEnabled = settings.enableHorizontalSwipeSkip && !!onScrubStart;
+  const handleScrubStart = useCallback(() => {
+    lightHaptic();
+    onScrubStart?.();
+  }, [lightHaptic, onScrubStart]);
+  const handleScrubMove = useCallback(
+    (deltaX: number) => onScrubMove?.(deltaX / windowWidth),
+    [onScrubMove, windowWidth],
+  );
 
   const handleHoldSpeedStart = useCallback(() => {
     if (!settings.enableHoldToSpeed) return;
@@ -306,12 +345,13 @@ export const GestureOverlay = ({
     handleTouchEnd,
     handleTouchCancel,
   } = useGestureDetection({
-    onSwipeLeft: handleSkipBackward,
-    onSwipeRight: handleSkipForward,
     onVerticalDragStart: handleVerticalDragStart,
     onVerticalDragMove: handleVerticalDragMove,
     onVerticalDragEnd: handleVerticalDragEnd,
-    onTap: onToggleControls,
+    onHorizontalDragStart: scrubEnabled ? handleScrubStart : undefined,
+    onHorizontalDragMove: scrubEnabled ? handleScrubMove : undefined,
+    onHorizontalDragEnd: scrubEnabled ? onScrubEnd : undefined,
+    onTap: handleTap,
     onLongPressStart: holdSpeedEnabled ? handleHoldSpeedStart : undefined,
     onLongPressEnd: holdSpeedEnabled ? handleHoldSpeedEnd : undefined,
     longPressDuration: CONTROLS_CONSTANTS.HOLD_SPEED_DELAY,
@@ -323,16 +363,10 @@ export const GestureOverlay = ({
 
   return (
     <>
-      {/* Gesture detection area */}
-      {showControls ? (
-        // Controls are visible, so this acts like the old tap overlay. Long
-        // press uses Pressable directly because the swipe and drag gestures
-        // are not active here
-        <AnimatedPressable
-          onPress={onToggleControls}
-          onLongPress={holdSpeedEnabled ? handleHoldSpeedStart : undefined}
-          onPressOut={holdSpeedEnabled ? handleHoldSpeedEnd : undefined}
-          delayLongPress={CONTROLS_CONSTANTS.HOLD_SPEED_DELAY}
+      {/* Dims the video behind the controls; touches go to the surface below */}
+      {showControls && (
+        <Animated.View
+          pointerEvents='none'
           style={{
             position: "absolute",
             width: windowWidth,
@@ -345,26 +379,27 @@ export const GestureOverlay = ({
             opacity: scrimOpacity,
           }}
         />
-      ) : (
-        <Pressable
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          // A cancelled touch (backgrounding, a system gesture) never
-          // delivers touchEnd, which would leave the hold engaged
-          onTouchCancel={handleTouchCancel}
-          style={{
-            position: "absolute",
-            width: windowWidth,
-            height: windowHeight,
-            backgroundColor: "transparent",
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-          }}
-        />
       )}
+      {/* Gesture surface, live with the controls shown too so a drag scrubs
+          from anywhere on the video */}
+      <Pressable
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        // A cancelled touch (backgrounding, a system gesture) never
+        // delivers touchEnd, which would leave the hold engaged
+        onTouchCancel={handleTouchCancel}
+        style={{
+          position: "absolute",
+          width: windowWidth,
+          height: windowHeight,
+          backgroundColor: "transparent",
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+        }}
+      />
 
       {/* Feedback overlay */}
       {feedback.visible && (

@@ -18,6 +18,8 @@ import {
   hasChapterMarkers,
 } from "@/utils/chapters";
 import { episodeSubtitle } from "@/utils/episodeLabel";
+import { SlowmoTimeline } from "./SlowmoTimeline";
+import { SurfaceScrubPreview } from "./SurfaceScrubPreview";
 import { TimeDisplay } from "./TimeDisplay";
 import { TrickplayBubble } from "./TrickplayBubble";
 
@@ -69,6 +71,12 @@ interface BottomControlsProps {
     minutes: number;
     seconds: number;
   };
+  /** Playback position in ms, for the slowmo timeline. */
+  progress?: SharedValue<number>;
+  /** Set while a drag on the video scrubs; shows the preview along the bar. */
+  surfaceScrubbing?: boolean;
+  /** Target of that scrub in ms. */
+  surfaceScrubPosition?: SharedValue<number>;
 }
 
 export const BottomControls: FC<BottomControlsProps> = ({
@@ -94,10 +102,14 @@ export const BottomControls: FC<BottomControlsProps> = ({
   trickPlayUrl,
   trickplayInfo,
   time,
+  progress,
+  surfaceScrubbing = false,
+  surfaceScrubPosition,
 }) => {
   const { t } = useTranslation();
   const insets = useControlsSafeAreaInsets();
   const [chapterListVisible, setChapterListVisible] = useState(false);
+  const [trackWidth, setTrackWidth] = useState(0);
 
   const chapterMarkerList = useMemo(
     () => chapterMarkers(chapters, durationMs),
@@ -184,6 +196,9 @@ export const BottomControls: FC<BottomControlsProps> = ({
         pointerEvents={showControls ? "box-none" : "none"}
       >
         <View className={"flex flex-col w-full shrink"}>
+          {progress && (
+            <SlowmoTimeline progress={progress} durationMs={durationMs} />
+          )}
           <View
             style={{
               height: 10,
@@ -195,7 +210,19 @@ export const BottomControls: FC<BottomControlsProps> = ({
             }}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
+            onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
           >
+            {surfaceScrubbing && surfaceScrubPosition && (
+              <SurfaceScrubPreview
+                position={surfaceScrubPosition}
+                max={max}
+                trackWidth={trackWidth}
+                trickPlayUrl={trickPlayUrl}
+                trickplayInfo={trickplayInfo}
+                time={time}
+                chapterName={scrubChapterName}
+              />
+            )}
             <Slider
               theme={{
                 maximumTrackTintColor: "rgba(255,255,255,0.2)",

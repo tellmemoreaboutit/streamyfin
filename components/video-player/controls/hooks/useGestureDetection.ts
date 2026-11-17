@@ -14,7 +14,13 @@ export interface SwipeGestureOptions {
     currentY: number,
   ) => void;
   onVerticalDragEnd?: (side: "left" | "right") => void;
-  onTap?: () => void;
+  /** Continuous horizontal drag (scrub). Replaces the discrete swipe when set. */
+  onHorizontalDragStart?: () => void;
+  /** Total horizontal travel since the drag began, in px. */
+  onHorizontalDragMove?: (deltaX: number) => void;
+  /** `cancelled` is true when the system took the touch away. */
+  onHorizontalDragEnd?: (cancelled: boolean) => void;
+  onTap?: (x: number) => void;
   onLongPressStart?: () => void;
   onLongPressEnd?: () => void;
   windowWidth?: number;
@@ -30,6 +36,9 @@ export const useGestureDetection = ({
   onVerticalDragStart,
   onVerticalDragMove,
   onVerticalDragEnd,
+  onHorizontalDragStart,
+  onHorizontalDragMove,
+  onHorizontalDragEnd,
   onTap,
   onLongPressStart,
   onLongPressEnd,
@@ -46,6 +55,7 @@ export const useGestureDetection = ({
   const shouldIgnoreTouch = useRef(false);
   const longPressTimeout = useRef<number | null>(null);
   const isLongPressing = useRef(false);
+  const isHorizontalDragging = useRef(false);
 
   const cancelLongPressTimer = useCallback(() => {
     if (longPressTimeout.current !== null) {
@@ -70,18 +80,20 @@ export const useGestureDetection = ({
       const topExclusionZone = windowHeight * 0.15;
       const bottomExclusionZone = windowHeight * 0.85;
 
-      // Check if touch started in exclusion zones
+      touchStartTime.current = Date.now();
+      touchStartPosition.current = {
+        x: event.nativeEvent.pageX,
+        y: startY,
+      };
+
+      // Check if touch started in exclusion zones: no drag or hold there, but
+      // it can still end as a tap
       if (startY < topExclusionZone || startY > bottomExclusionZone) {
         shouldIgnoreTouch.current = true;
         return;
       }
 
       shouldIgnoreTouch.current = false;
-      touchStartTime.current = Date.now();
-      touchStartPosition.current = {
-        x: event.nativeEvent.pageX,
-        y: startY,
-      };
       lastTouchPosition.current = {
         x: event.nativeEvent.pageX,
         y: startY,
@@ -142,10 +154,18 @@ export const useGestureDetection = ({
           isDragging.current = true;
           dragSide.current = side;
           onVerticalDragStart?.(side, touchStartPosition.current.y);
-        } else if (absX > absY && absX > 10) {
-          // Horizontal gesture - mark for discrete swipe
+        } else if (absX > absY && absX > 5) {
+          // Horizontal gesture - a scrub when wired, else a discrete swipe
           gestureType.current = "horizontal";
+          if (onHorizontalDragStart) {
+            isHorizontalDragging.current = true;
+            onHorizontalDragStart();
+          }
         }
+      }
+
+      if (isHorizontalDragging.current) {
+        onHorizontalDragMove?.(deltaX);
       }
 
       // Continue vertical drag if already dragging
@@ -167,6 +187,8 @@ export const useGestureDetection = ({
     [
       onVerticalDragStart,
       onVerticalDragMove,
+      onHorizontalDragStart,
+      onHorizontalDragMove,
       windowWidth,
       cancelLongPressTimer,
     ],
@@ -174,9 +196,17 @@ export const useGestureDetection = ({
 
   const handleTouchEnd = useCallback(
     (event: GestureResponderEvent) => {
-      // Ignore touch if it started in exclusion zone
+      // Started in an exclusion zone: only a short, still touch counts (tap)
       if (shouldIgnoreTouch.current) {
         shouldIgnoreTouch.current = false;
+        const dx = event.nativeEvent.pageX - touchStartPosition.current.x;
+        const dy = event.nativeEvent.pageY - touchStartPosition.current.y;
+        if (
+          Date.now() - touchStartTime.current < 300 &&
+          Math.hypot(dx, dy) < 10
+        ) {
+          onTap?.(event.nativeEvent.pageX);
+        }
         return;
       }
 
@@ -203,6 +233,14 @@ export const useGestureDetection = ({
       const absX = Math.abs(deltaX);
       const absY = Math.abs(deltaY);
       const totalDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+      if (isHorizontalDragging.current) {
+        isHorizontalDragging.current = false;
+        hasMovedEnough.current = false;
+        gestureType.current = "none";
+        onHorizontalDragEnd?.(false);
+        return;
+      }
 
       // End vertical drag if we were dragging
       if (
@@ -243,7 +281,7 @@ export const useGestureDetection = ({
         totalDistance < 10
       ) {
         // It's a tap - short duration and small movement
-        onTap?.();
+        onTap?.(touchEndPosition.x);
       }
 
       hasMovedEnough.current = false;
@@ -255,6 +293,7 @@ export const useGestureDetection = ({
       onSwipeLeft,
       onSwipeRight,
       onVerticalDragEnd,
+      onHorizontalDragEnd,
       onTap,
       onLongPressEnd,
       cancelLongPressTimer,
@@ -269,6 +308,10 @@ export const useGestureDetection = ({
       isLongPressing.current = false;
       onLongPressEnd?.();
     }
+    if (isHorizontalDragging.current) {
+      isHorizontalDragging.current = false;
+      onHorizontalDragEnd?.(true);
+    }
     if (isDragging.current && dragSide.current) {
       onVerticalDragEnd?.(dragSide.current);
     }
@@ -277,7 +320,12 @@ export const useGestureDetection = ({
     hasMovedEnough.current = false;
     gestureType.current = "none";
     shouldIgnoreTouch.current = false;
-  }, [cancelLongPressTimer, onLongPressEnd, onVerticalDragEnd]);
+  }, [
+    cancelLongPressTimer,
+    onLongPressEnd,
+    onVerticalDragEnd,
+    onHorizontalDragEnd,
+  ]);
 
   return {
     handleTouchStart,

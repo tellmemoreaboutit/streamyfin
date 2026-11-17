@@ -395,6 +395,9 @@ export const Controls: FC<Props> = ({
     handleSliderComplete,
     handleSliderChange,
     seekTo,
+    beginSurfaceScrub,
+    moveSurfaceScrub,
+    endSurfaceScrub,
   } = useVideoSlider({
     progress,
     isSeeking,
@@ -407,6 +410,44 @@ export const Controls: FC<Props> = ({
   });
 
   const effectiveProgress = useSharedValue(0);
+
+  // Dragging on the video scrubs like the native player: the drag starts it
+  // (revealing the controls), the finger lifting seeks.
+  const [surfaceScrubbing, setSurfaceScrubbing] = useState(false);
+  const surfaceScrubMs = useSharedValue(0);
+  const handleScrubStart = useCallback(() => {
+    setShowControls(true);
+    setSurfaceScrubbing(true);
+    beginSurfaceScrub();
+    surfaceScrubMs.value = progress.value;
+    remoteScrubProgress.value = progress.value;
+    isRemoteScrubbing.value = true;
+  }, [
+    setShowControls,
+    beginSurfaceScrub,
+    surfaceScrubMs,
+    progress,
+    remoteScrubProgress,
+    isRemoteScrubbing,
+  ]);
+  // `fraction` is the horizontal travel as a share of the screen width
+  const handleScrubMove = useCallback(
+    (fraction: number) => {
+      const value = moveSurfaceScrub(fraction, maxMs);
+      surfaceScrubMs.value = value;
+      remoteScrubProgress.value = value;
+    },
+    [moveSurfaceScrub, maxMs, surfaceScrubMs, remoteScrubProgress],
+  );
+  const handleScrubEnd = useCallback(
+    (cancelled: boolean) => {
+      isRemoteScrubbing.value = false;
+      remoteScrubProgress.value = null;
+      setSurfaceScrubbing(false);
+      endSurfaceScrub(cancelled);
+    },
+    [isRemoteScrubbing, remoteScrubProgress, endSurfaceScrub],
+  );
 
   // Recompute progress whenever remote scrubbing is active or when progress significantly changes
   useAnimatedReaction(
@@ -797,6 +838,9 @@ export const Controls: FC<Props> = ({
             onSkipBackward={handleSkipBackward}
             onHoldSpeedStart={handleHoldSpeedStart}
             onHoldSpeedEnd={handleHoldSpeedEnd}
+            onScrubStart={handleScrubStart}
+            onScrubMove={handleScrubMove}
+            onScrubEnd={handleScrubEnd}
             isPlaying={isPlaying}
             videoTopOffset={videoTopOffset}
           />
@@ -843,6 +887,7 @@ export const Controls: FC<Props> = ({
               onToggleTechnicalInfo={onToggleTechnicalInfo}
               onOpenSubtitleScale={openSubtitleScale}
               progress={progress}
+              pause={pause}
             />
           </Animated.View>
           <Animated.View
@@ -892,6 +937,9 @@ export const Controls: FC<Props> = ({
               trickPlayUrl={trickPlayUrl}
               trickplayInfo={trickplayInfo}
               time={isSliding || showRemoteBubble ? time : remoteTime}
+              progress={progress}
+              surfaceScrubbing={surfaceScrubbing}
+              surfaceScrubPosition={surfaceScrubMs}
             />
           </Animated.View>
           {/* Skip Intro / Skip Credits float independently of the controls so

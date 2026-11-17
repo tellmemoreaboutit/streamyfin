@@ -2,8 +2,11 @@ import {
   mapPositionBetweenVersions,
   nudgeSegment,
   originalToSlowmo,
+  rangeFractions,
   type SlowmoJob,
+  setSegmentEdge,
   slowmoToOriginal,
+  slowmoWebGuiUrl,
 } from "./slowmo";
 
 const segs = [
@@ -58,5 +61,29 @@ describe("nudge", () => {
     const tight = { start: 1, end: 1.5 };
     expect(nudgeSegment(tight, "start", 0.5)).toBe(tight);
     expect(nudgeSegment(tight, "end", 0.5).end).toBe(2);
+  });
+});
+
+describe("timeline helpers", () => {
+  test("rangeFractions clamps to the timeline and ignores the order", () => {
+    expect(rangeFractions(10, 20, 100)).toEqual({ left: 0.1, width: 0.1 });
+    expect(rangeFractions(20, 10, 100)).toEqual({ left: 0.1, width: 0.1 });
+    expect(rangeFractions(-5, 150, 100)).toEqual({ left: 0, width: 1 });
+    expect(rangeFractions(1, 2, 0)).toBeNull();
+  });
+
+  test("setSegmentEdge moves an edge to an absolute time", () => {
+    expect(setSegmentEdge({ start: 10, end: 20 }, "end", 25)).toEqual({
+      start: 10,
+      end: 25,
+    });
+    const seg = { start: 10, end: 20 };
+    expect(setSegmentEdge(seg, "start", 30)).toBe(seg);
+  });
+
+  test("slowmoWebGuiUrl", () => {
+    expect(slowmoWebGuiUrl("http://h:1/", "abc", 12.34)).toBe(
+      "http://h:1/#/item/abc?t=12.3",
+    );
   });
 });

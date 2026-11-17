@@ -294,9 +294,9 @@ export const getActiveVideoPlayerEngine = (
  * getActiveVideoPlayerEngine, so this function says nothing about the
  * engine (use getActivePlayerType for that).
  *
- * On iPhone/iPad the chrome is the default: an unset `videoPlayer` (user
- * never chose) or an explicit `Native` selection resolves to Native, while
- * an explicit MPV choice is the opt-out and wins. On Apple TV (tvOS 26+) the
+ * On iPhone/iPad (this fork) the classic JS chrome is the default: an unset
+ * `videoPlayer` resolves to MPV, only an explicit `Native` selection gives
+ * the native chrome. On Apple TV (tvOS 26+) the
  * chrome is likewise the default with `nativeVideoPlayerTV` as the opt-out;
  * on Android TV it is opt-in via `nativeVideoPlayerAndroidTV`. The platform
  * capability gates are folded in here so a caller is never told one thing
@@ -323,11 +323,7 @@ export const getActiveVideoPlayer = (
   ) {
     return VideoPlayer.Native;
   }
-  if (
-    isNativePlayerSupported &&
-    ((Platform.OS === "ios" && settings?.videoPlayer === undefined) ||
-      settings?.videoPlayer === VideoPlayer.Native)
-  ) {
+  if (isNativePlayerSupported && settings?.videoPlayer === VideoPlayer.Native) {
     return VideoPlayer.Native;
   }
   return getActiveVideoPlayerEngine(settings);
@@ -643,7 +639,7 @@ export const defaultValues: Settings = {
   preferedLanguage: undefined,
   searchEngine: "Jellyfin",
   // videoPlayer intentionally undefined — resolved at runtime via
-  // getActiveVideoPlayer() so existing installs are unaffected.
+  // getActiveVideoPlayer() (classic chrome on iOS unless Native is chosen).
   marlinServerUrl: "",
   slowmoServerUrl: "",
   slowmoToken: "",

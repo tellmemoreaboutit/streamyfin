@@ -4,6 +4,16 @@ import type { SharedValue } from "react-native-reanimated";
 import { msToTicks, ticksToSeconds } from "@/utils/time";
 import { CONTROLS_CONSTANTS } from "../constants";
 
+/**
+ * Target of a drag anywhere on the video (native player parity): the full
+ * screen width maps to the full duration, starting from where the drag began.
+ */
+export const surfaceScrubTarget = (
+  startMs: number,
+  fraction: number,
+  durationMs: number,
+) => Math.min(Math.max(startMs + fraction * durationMs, 0), durationMs);
+
 interface UseVideoSliderProps {
   progress: SharedValue<number>;
   isSeeking: SharedValue<boolean>;
@@ -33,6 +43,7 @@ export function useVideoSlider({
   const [time, setTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
   const wasPlayingRef = useRef(false);
   const lastProgressRef = useRef<number>(0);
+  const surfaceScrub = useRef({ startMs: 0, valueMs: 0 });
 
   const handleSliderStart = useCallback(() => {
     if (!showControls) {
@@ -103,6 +114,47 @@ export function useVideoSlider({
     [calculateTrickplayUrl],
   );
 
+  // Scrub by dragging on the video: same pause / trickplay / seek-on-release
+  // path as the slider, driven by the gesture overlay instead of the thumb.
+  const beginSurfaceScrub = useCallback(() => {
+    setIsSliding(true);
+    wasPlayingRef.current = isPlaying;
+    surfaceScrub.current = {
+      startMs: progress.value,
+      valueMs: progress.value,
+    };
+    pause();
+    isSeeking.value = true;
+  }, [isPlaying, pause, progress, isSeeking]);
+
+  const moveSurfaceScrub = useCallback(
+    (fraction: number, durationMs: number) => {
+      const value = surfaceScrubTarget(
+        surfaceScrub.current.startMs,
+        fraction,
+        durationMs,
+      );
+      surfaceScrub.current.valueMs = value;
+      handleSliderChange(value);
+      return value;
+    },
+    [handleSliderChange],
+  );
+
+  const endSurfaceScrub = useCallback(
+    (cancelled: boolean) => {
+      if (!cancelled) {
+        handleSliderComplete(surfaceScrub.current.valueMs);
+        return;
+      }
+      // Back to where it was: no seek
+      setIsSliding(false);
+      isSeeking.value = false;
+      if (wasPlayingRef.current) play();
+    },
+    [handleSliderComplete, isSeeking, play],
+  );
+
   return {
     isSliding,
     time,
@@ -112,5 +164,8 @@ export function useVideoSlider({
     handleSliderComplete,
     handleSliderChange,
     seekTo,
+    beginSurfaceScrub,
+    moveSurfaceScrub,
+    endSurfaceScrub,
   };
 }

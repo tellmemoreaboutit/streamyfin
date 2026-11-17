@@ -245,9 +245,9 @@
         "title": "Odtwarzacz wideo",
         "exoplayer": "ExoPlayer",
         "mpv": "MPV",
-        "native": "Natywny (zalecany)",
-        "classic": "Klasyczny",
-        "native_note": "Obie opcje korzystają z tego samego silnika MPV, zmieniają się tylko elementy sterowania odtwarzacza. Natywny odtwarzacz korzysta z systemowych elementów sterowania iOS i otwiera się natychmiast. Wróć do poprzedniego, jeśli napotkasz problemy z odtwarzaniem.",
+        "native": "Natywny",
+        "classic": "Klasyczny (zalecany)",
+        "native_note": "Obie opcje korzystają z tego samego silnika MPV, zmieniają się tylko elementy sterowania odtwarzacza. Natywny odtwarzacz korzysta z systemowych elementów sterowania iOS i otwiera się natychmiast; klasyczny jest domyślny i ma narzędzia Slowmo.",
         "exoplayer_note": "ExoPlayer nie obsługuje zaawansowanego stylowania napisów ASS/SSA ani poziomego wyrównania napisów. Przełącz się na MPV, jeśli tego potrzebujesz.",
         "mpv_note": "MPV na TV nie przekazuje obecnie metadanych HDR do wyświetlacza, więc treści HDR10/HDR10+ są mapowane tonalnie do SDR. Przełącz się na ExoPlayer, aby uzyskać obraz HDR.",
         "native_tv": "Natywny odtwarzacz (eksperymentalny)",
@@ -1517,6 +1517,8 @@
     "queued": "Zadanie slowmo w kolejce",
     "failed": "Żądanie slowmo nie powiodło się",
     "no_jobs": "Brak zadań",
+    "open_web_gui": "Otwórz w Web GUI",
+    "set_to_now": "Ustaw na teraz",
     "cancel": "Anuluj"
   }
 }
