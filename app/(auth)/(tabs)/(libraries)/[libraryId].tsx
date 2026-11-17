@@ -103,6 +103,7 @@ import {
   yearFilterAtom,
   yearPreferenceAtom,
 } from "@/utils/atoms/filters";
+import { playContextAtom } from "@/utils/atoms/playContext";
 import {
   type TVLibrarySheetGroup,
   type TVLibrarySheetState,
@@ -678,6 +679,38 @@ const LibraryPage = () => {
     [user?.Id, libraryId, library?.CollectionType, ownFilters, serverVersion],
   );
 
+  // The list's query without paging or the letter jump: what the player's
+  // previous/next buttons walk when an item is opened from this grid.
+  const listQuery = useMemo(() => {
+    if (!libraryFilter || !library) return null;
+    const itemsQuery = buildLibraryItemsQuery(libraryFilter);
+    return {
+      userId: itemsQuery.userId,
+      parentId: itemsQuery.parentId,
+      recursive: itemsQuery.recursive,
+      ...getLibraryTabFilters(activeTab, itemsQuery),
+      ...getLibraryTabQuery(activeTab, library, Platform.isTV),
+    };
+  }, [libraryFilter, library, activeTab]);
+  // The language filters are part of the filter bar: off the items tab
+  // they apply as little as its genres do.
+  const listOptions = useMemo(
+    () =>
+      hasFilterBar && libraryFilter
+        ? libraryLanguageOptions(libraryFilter)
+        : undefined,
+    [hasFilterBar, libraryFilter],
+  );
+  const setPlayContext = useSetAtom(playContextAtom);
+  const rememberList = useCallback(() => {
+    // Only the items tab lists videos; containers open their own list.
+    setPlayContext(
+      activeTab === "items" && listQuery
+        ? { params: listQuery, options: listOptions }
+        : null,
+    );
+  }, [setPlayContext, activeTab, listQuery, listOptions]);
+
   const fetchItems = useCallback(
     async ({
       pageParam,
@@ -689,14 +722,9 @@ const LibraryPage = () => {
       // The filter bar's part comes from the filter Play All queues from, so
       // the two cannot drift apart. A collections or playlists tab swaps it,
       // and the item type, for its own.
-      const itemsQuery = buildLibraryItemsQuery(libraryFilter);
       const response = await getLibraryApi(api).getItems(
         {
-          userId: itemsQuery.userId,
-          parentId: itemsQuery.parentId,
-          recursive: itemsQuery.recursive,
-          ...getLibraryTabFilters(activeTab, itemsQuery),
-          ...getLibraryTabQuery(activeTab, library, Platform.isTV),
+          ...listQuery!,
           ...jumpParams,
           limit: PAGE_SIZE,
           startIndex: pageParam,
@@ -704,14 +732,12 @@ const LibraryPage = () => {
           imageTypeLimit: 1,
           fields: ["PrimaryImageAspectRatio", "SortName"],
         },
-        // The language filters are part of the filter bar: off the items tab
-        // they apply as little as its genres do.
-        hasFilterBar ? libraryLanguageOptions(libraryFilter) : undefined,
+        listOptions,
       );
 
       return response.data || null;
     },
-    [api, library, libraryFilter, activeTab, hasFilterBar, jumpParams],
+    [api, library, libraryFilter, listQuery, listOptions, jumpParams],
   );
 
   const { data, isFetching, fetchNextPage, hasNextPage, isLoading } =
@@ -791,7 +817,11 @@ const LibraryPage = () => {
     items: flatData,
     columns: nrOfCols,
     enableActionSheet: true,
-    onPressItem: activeTab === "playlists" ? openPlaylistAsGrid : undefined,
+    onPressItem: (item: BaseItemDto) => {
+      rememberList();
+      if (activeTab === "playlists") openPlaylistAsGrid(item);
+      else router.push(getItemNavigation(item, "(libraries)") as any);
+    },
   });
 
   const renderTVItem = useCallback(
@@ -804,6 +834,7 @@ const LibraryPage = () => {
           });
           return;
         }
+        rememberList();
         const navTarget = getItemNavigation(item, "(libraries)");
         router.push(navTarget as any);
       };
@@ -872,7 +903,7 @@ const LibraryPage = () => {
         />
       );
     },
-    [router, showItemActions, api, typography],
+    [router, showItemActions, api, typography, rememberList],
   );
 
   const generalFilters = useFilterOptions();

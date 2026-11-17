@@ -1,4 +1,4 @@
-import { adjacentIds, sortSiblings } from "./adjacentIds";
+import { adjacentIds } from "./adjacentIds";
 
 const list = [{ Id: "a" }, { Id: "b" }, { Id: "c" }];
 
@@ -17,16 +17,5 @@ describe("adjacentIds", () => {
 
   it("returns nothing for a missing id", () => {
     expect(adjacentIds(list, "zzz")).toEqual({ previous: null, next: null });
-  });
-});
-
-describe("sortSiblings", () => {
-  it("sorts by SortName ignoring case and breaks ties by Id", () => {
-    const sorted = sortSiblings([
-      { Id: "3", SortName: "b" },
-      { Id: "2", SortName: "A" },
-      { Id: "1", SortName: "a" },
-    ]);
-    expect(sorted.map((e) => e.Id)).toEqual(["1", "2", "3"]);
   });
 });
