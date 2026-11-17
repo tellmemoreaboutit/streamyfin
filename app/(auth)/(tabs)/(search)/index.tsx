@@ -52,7 +52,10 @@ import {
   SeerrIndexPage,
   SeerrSearchSort,
 } from "@/components/seerr/SeerrIndexPage";
-import { SEARCH_RESULT_LIMIT } from "@/constants/Search";
+import {
+  SEARCH_INDEX_STALE_TIME,
+  SEARCH_RESULT_LIMIT,
+} from "@/constants/Search";
 import useRouter from "@/hooks/useAppRouter";
 import { useSeerr } from "@/hooks/useSeerr";
 import { useServerVersion } from "@/hooks/useServerVersion";
@@ -64,8 +67,17 @@ import { getIntegrationHeaders } from "@/utils/customHeaders";
 import { isAbortLikeError } from "@/utils/errors";
 import { eventBus } from "@/utils/eventBus";
 import { getPrimaryImageUrl } from "@/utils/jellyfin/image/getPrimaryImageUrl";
-import { searchPeople, searchStudios } from "@/utils/jellyfin/search";
+import {
+  fetchNameIndex,
+  searchPeople,
+  searchStudios,
+} from "@/utils/jellyfin/search";
 import { logAndCaptureError } from "@/utils/log";
+import {
+  hasWildcard,
+  mergeNameMatches,
+  stripWildcards,
+} from "@/utils/search/nameMatch";
 import { isSeerrQuery } from "@/utils/seerr/queries";
 import { searchSeerr } from "@/utils/seerr/search";
 import { loadDiscoverSliders } from "@/utils/seerr/sliders";
@@ -143,6 +155,17 @@ export default function SearchPage() {
     return settings?.searchEngine || "Jellyfin";
   }, [settings]);
 
+  // Every searchable name, so a query can match mid-word and with wildcards,
+  // which Jellyfin's own search cannot. Only for the Jellyfin engine.
+  const { data: nameIndex } = useQuery({
+    queryKey: ["nameIndex", api?.basePath, user?.Id],
+    queryFn: ({ signal }) =>
+      fetchNameIndex({ api: api!, userId: user?.Id, signal }),
+    enabled: !!api && !!user?.Id && searchEngine === "Jellyfin",
+    staleTime: SEARCH_INDEX_STALE_TIME,
+  });
+  const indexReady = !!nameIndex;
+
   useEffect(() => {
     if (q && q.length > 0) {
       setSearch(q);
@@ -165,9 +188,25 @@ export default function SearchPage() {
 
       try {
         if (searchEngine === "Jellyfin") {
+          // The server knows no wildcards: with the index they are answered
+          // client-side only, without it the server gets the plain words.
+          const wildcard = hasWildcard(query);
+          const serverQuery = wildcard ? stripWildcards(query) : query;
+          if (wildcard && nameIndex) {
+            return mergeNameMatches({
+              server: [],
+              index: nameIndex,
+              types,
+              query,
+              limit: SEARCH_RESULT_LIMIT,
+            });
+          }
+          if (!serverQuery) {
+            return [];
+          }
           const searchApi = await getLibraryApi(api).getItems(
             {
-              searchTerm: query,
+              searchTerm: serverQuery,
               limit: SEARCH_RESULT_LIMIT,
               includeItemTypes: types,
               recursive: true,
@@ -178,7 +217,16 @@ export default function SearchPage() {
             { signal },
           );
 
-          return (searchApi.data.Items as BaseItemDto[]) || [];
+          const server = (searchApi.data.Items as BaseItemDto[]) || [];
+          return nameIndex
+            ? mergeNameMatches({
+                server,
+                index: nameIndex,
+                types,
+                query,
+                limit: SEARCH_RESULT_LIMIT,
+              })
+            : server;
         }
 
         if (searchEngine === "Streamystats") {
@@ -273,7 +321,7 @@ export default function SearchPage() {
         return [];
       }
     },
-    [api, searchEngine, settings, user?.Id],
+    [api, searchEngine, settings, user?.Id, nameIndex],
   );
 
   // Separate search function for music types - always uses Jellyfin since Streamystats doesn't support music
@@ -361,7 +409,7 @@ export default function SearchPage() {
   }, []);
 
   const { data: moviesFound, isFetching: l1 } = useQuery({
-    queryKey: ["search", "movies", debouncedSearch],
+    queryKey: ["search", "movies", debouncedSearch, indexReady],
     queryFn: ({ signal }) =>
       searchFn({
         query: debouncedSearch,
@@ -372,7 +420,7 @@ export default function SearchPage() {
   });
 
   const { data: seriesFound, isFetching: l2 } = useQuery({
-    queryKey: ["search", "series", debouncedSearch],
+    queryKey: ["search", "series", debouncedSearch, indexReady],
     queryFn: ({ signal }) =>
       searchFn({
         query: debouncedSearch,
@@ -383,7 +431,7 @@ export default function SearchPage() {
   });
 
   const { data: episodesFound, isFetching: l3 } = useQuery({
-    queryKey: ["search", "episodes", debouncedSearch],
+    queryKey: ["search", "episodes", debouncedSearch, indexReady],
     queryFn: ({ signal }) =>
       searchFn({
         query: debouncedSearch,
@@ -394,7 +442,7 @@ export default function SearchPage() {
   });
 
   const { data: collectionsFound, isFetching: l7 } = useQuery({
-    queryKey: ["search", "collections", debouncedSearch],
+    queryKey: ["search", "collections", debouncedSearch, indexReady],
     queryFn: ({ signal }) =>
       searchFn({
         query: debouncedSearch,

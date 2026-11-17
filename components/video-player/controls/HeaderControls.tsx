@@ -30,6 +30,13 @@ interface HeaderControlsProps {
   goToNextItem: (options: { isAutoPlay?: boolean }) => void;
   previousItem?: BaseItemDto | null;
   nextItem?: BaseItemDto | null;
+  // Prev/next video in the parent folder (home videos); episodes use the props above.
+  siblingNav?: {
+    hasPrevious: boolean;
+    hasNext: boolean;
+    goPrevious: () => void;
+    goNext: () => void;
+  };
   aspectRatio?: AspectRatio;
   isZoomedToFill?: boolean;
   onZoomToggle?: () => void;
@@ -56,6 +63,7 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
   goToNextItem,
   previousItem,
   nextItem,
+  siblingNav,
   aspectRatio: _aspectRatio = "default",
   isZoomedToFill = false,
   onZoomToggle,
@@ -219,6 +227,37 @@ export const HeaderControls: FC<HeaderControlsProps> = ({
               color='white'
             />
           </TouchableOpacity>
+        )}
+        {/* Narrower than the other buttons so the title keeps room on a phone. */}
+        {siblingNav && !previousItem && !nextItem && (
+          <>
+            <TouchableOpacity
+              onPress={siblingNav.goPrevious}
+              disabled={!siblingNav.hasPrevious}
+              className='flex flex-col items-center justify-center w-9 h-11'
+              style={{ opacity: siblingNav.hasPrevious ? 1 : 0.35 }}
+              accessibilityLabel={t("player.previous_video")}
+            >
+              <Ionicons
+                name='play-skip-back'
+                size={ICON_SIZES.HEADER}
+                color='white'
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={siblingNav.goNext}
+              disabled={!siblingNav.hasNext}
+              className='flex flex-col items-center justify-center w-9 h-11'
+              style={{ opacity: siblingNav.hasNext ? 1 : 0.35 }}
+              accessibilityLabel={t("player.next_video")}
+            >
+              <Ionicons
+                name='play-skip-forward'
+                size={ICON_SIZES.HEADER}
+                color='white'
+              />
+            </TouchableOpacity>
+          </>
         )}
         {/* MPV Zoom Toggle */}
         <ZoomToggle

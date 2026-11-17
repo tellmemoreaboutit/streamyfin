@@ -6,7 +6,7 @@ import type {
 import { useKeyEventListener } from "expo-key-event";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
-import { useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   type FC,
   useCallback,
@@ -32,13 +32,20 @@ import { useHaptic } from "@/hooks/useHaptic";
 import { useMediaSegments } from "@/hooks/useMediaSegments";
 import { usePlaybackManager } from "@/hooks/usePlaybackManager";
 import { useServerVersion } from "@/hooks/useServerVersion";
+import { useSiblingItems } from "@/hooks/useSiblingItems";
 import { useTrickplay } from "@/hooks/useTrickplay";
 import type { TechnicalInfo } from "@/modules/mpv-player";
 import { useDownload } from "@/providers/DownloadProvider";
 import { DownloadedItem } from "@/providers/Downloads/types";
 import { useOfflineMode } from "@/providers/OfflineModeProvider";
 import { useSettings } from "@/utils/atoms/settings";
-import { slowmoSegmentsAtom } from "@/utils/atoms/slowmoSelection";
+import {
+  slowmoLoopAtom,
+  slowmoMarksItemAtom,
+  slowmoPendingStartAtom,
+  slowmoSegmentsAtom,
+  slowmoSelectedAtom,
+} from "@/utils/atoms/slowmoSelection";
 import { hasChapterMarkers } from "@/utils/chapters";
 import { routeTrackSelection } from "@/utils/directPlayer/routeTrackIndexes";
 import { resolveStartTicks } from "@/utils/directPlayer/sessionPosition";
@@ -190,6 +197,9 @@ export const Controls: FC<Props> = ({
     item,
     isOffline: offline,
   });
+
+  // Home videos have no episodes: the header steps through the parent folder.
+  const siblings = useSiblingItems(item, !offline);
 
   const {
     trickPlayUrl,
@@ -442,6 +452,21 @@ export const Controls: FC<Props> = ({
   // Ticks while a scrub passes a chapter or a slowmo edge
   const tickHaptic = useHaptic("selection");
   const markedSegments = useAtomValue(slowmoSegmentsAtom);
+  // Marks belong to one movie: drop them when another one opens (prev/next
+  // video, or a different movie later), keep them across versions and re-opens
+  const [marksItem, setMarksItem] = useAtom(slowmoMarksItemAtom);
+  const setMarked = useSetAtom(slowmoSegmentsAtom);
+  const setPendingMark = useSetAtom(slowmoPendingStartAtom);
+  const setSelectedMark = useSetAtom(slowmoSelectedAtom);
+  const setMarkLoop = useSetAtom(slowmoLoopAtom);
+  useEffect(() => {
+    if (!item.Id || item.Id === marksItem) return;
+    setMarksItem(item.Id);
+    setMarked([]);
+    setPendingMark(null);
+    setSelectedMark(null);
+    setMarkLoop({ on: false, rate: 1 });
+  }, [item.Id, marksItem]);
   const slowedParts = useSlowedParts();
   const scrubMarks = useMemo(() => {
     if (!settings.enableScrubHaptics) return undefined;
@@ -820,6 +845,31 @@ export const Controls: FC<Props> = ({
     ],
   );
 
+  // Same switch path as next episode; the neighbour is fetched in full first
+  // (media sources for track selection, user data for the resume position).
+  // Autoplay never uses this: it only follows episodes.
+  const { fetchFull } = siblings;
+  const goToSibling = useCallback(
+    async (target: { Id?: string | null } | null) => {
+      if (!target?.Id) return;
+      try {
+        const full = await fetchFull(target.Id);
+        if (full) goToItemByUser(full);
+      } catch {
+        // Leave the current video playing when the lookup fails.
+      }
+    },
+    [fetchFull, goToItemByUser],
+  );
+  const goToPreviousSibling = useCallback(
+    () => goToSibling(siblings.previous),
+    [goToSibling, siblings.previous],
+  );
+  const goToNextSibling = useCallback(
+    () => goToSibling(siblings.next),
+    [goToSibling, siblings.next],
+  );
+
   // Add a memoized handler for autoplay next episode
   const handleNextEpisodeAutoPlay = useCallback(() => {
     goToNextItem({ isAutoPlay: true });
@@ -935,6 +985,16 @@ export const Controls: FC<Props> = ({
               goToNextItem={goToNextItem}
               previousItem={previousItem}
               nextItem={nextItem}
+              siblingNav={
+                siblings.visible
+                  ? {
+                      hasPrevious: !!siblings.previous,
+                      hasNext: !!siblings.next,
+                      goPrevious: goToPreviousSibling,
+                      goNext: goToNextSibling,
+                    }
+                  : undefined
+              }
               aspectRatio={aspectRatio}
               isZoomedToFill={isZoomedToFill}
               onZoomToggle={onZoomToggle}

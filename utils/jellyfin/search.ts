@@ -14,6 +14,9 @@ import {
 import sortBy from "lodash/sortBy";
 import {
   SEARCH_EXCLUDED_PERSON_TYPES,
+  SEARCH_INDEX_MAX_ITEMS,
+  SEARCH_INDEX_PAGE_SIZE,
+  SEARCH_INDEX_TYPES,
   SEARCH_PEOPLE_FETCH_LIMIT,
   SEARCH_PEOPLE_WIDE_FETCH_LIMIT,
   SEARCH_RESULT_LIMIT,
@@ -206,4 +209,42 @@ export const nextStartIndex = (
     0,
   );
   return loaded < (lastPage.TotalRecordCount ?? 0) ? loaded : undefined;
+};
+
+/**
+ * Every item the Library search can find, for matching names client-side
+ * (substring, wildcards) where the server's search cannot.
+ */
+export const fetchNameIndex = async ({
+  api,
+  userId,
+  signal,
+}: {
+  api: Api;
+  userId?: string;
+  signal?: AbortSignal;
+}): Promise<BaseItemDto[]> => {
+  const items: BaseItemDto[] = [];
+  while (items.length < SEARCH_INDEX_MAX_ITEMS) {
+    const { data } = await getLibraryApi(api).getItems(
+      {
+        userId,
+        includeItemTypes: [...SEARCH_INDEX_TYPES],
+        recursive: true,
+        sortBy: ["SortName"],
+        sortOrder: ["Ascending"],
+        fields: [ItemFields.DateCreated],
+        enableImages: true,
+        imageTypeLimit: 1,
+        startIndex: items.length,
+        limit: SEARCH_INDEX_PAGE_SIZE,
+      },
+      { signal },
+    );
+    items.push(...(data.Items ?? []));
+    if (!data.Items?.length || items.length >= (data.TotalRecordCount ?? 0)) {
+      break;
+    }
+  }
+  return items;
 };

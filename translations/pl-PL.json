@@ -930,6 +930,8 @@
     "chromecast_did_not_start": "Chromecast nie rozpoczął odtwarzania. Upewnij się, że może połączyć się z Twoim serwerem Jellyfin.",
     "message_from_server": "Wiadomość z serwera: {{message}}",
     "next_episode": "Następny odcinek",
+    "previous_video": "Poprzednie wideo",
+    "next_video": "Następne wideo",
     "up_next": "Następne",
     "continue_watching": "Kontynuuj oglądanie",
     "go_back": "Wstecz",

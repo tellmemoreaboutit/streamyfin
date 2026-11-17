@@ -1005,6 +1005,8 @@
     "chromecast_did_not_start": "The Chromecast did not start playing. Make sure it can reach your Jellyfin server.",
     "message_from_server": "Message from server: {{message}}",
     "next_episode": "Next episode",
+    "previous_video": "Previous video",
+    "next_video": "Next video",
     "up_next": "Up next",
     "continue_watching": "Continue watching",
     "go_back": "Go back",

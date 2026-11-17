@@ -36,3 +36,19 @@ export const SEARCH_EXCLUDED_PERSON_TYPES: PersonKind[] = [
  */
 export const STUDIO_PAGE_SIZE = 18;
 export const STUDIO_TV_PAGE_SIZE = 36;
+
+/** Item types the client-side name index holds (what the Library sections search, plus home videos). */
+export const SEARCH_INDEX_TYPES = [
+  "Movie",
+  "Video",
+  "Series",
+  "Episode",
+  "BoxSet",
+] as const;
+
+/** Page size of the name index requests, and the most items it keeps. */
+export const SEARCH_INDEX_PAGE_SIZE = 5000;
+export const SEARCH_INDEX_MAX_ITEMS = 20000;
+
+/** How long the name index is good for. */
+export const SEARCH_INDEX_STALE_TIME = 10 * 60 * 1000;

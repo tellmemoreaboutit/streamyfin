@@ -18,3 +18,5 @@ export const slowmoLoopAtom = atom<{ on: boolean; rate: number }>({
 // Movie the player has open: its own Slowmo UI announces finished jobs, so the
 // global notifier stays quiet for it.
 export const slowmoPlayerItemAtom = atom<string | null>(null);
+// Movie the marks above belong to: opening another movie starts with none
+export const slowmoMarksItemAtom = atom<string | null>(null);
