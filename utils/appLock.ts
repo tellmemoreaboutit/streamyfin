@@ -1,4 +1,10 @@
 import * as SecureStore from "expo-secure-store";
+import {
+  clearNativePin,
+  isAppLockAvailable,
+  setNativePin,
+  verifyNativePin,
+} from "@/modules/app-lock";
 import { hashPIN } from "./secureCredentials";
 
 const PIN_KEY = "appLockPinHash";
@@ -7,13 +13,24 @@ export const MAX_ATTEMPTS = 5;
 export const COOLDOWN_MS = 30_000;
 
 // ponytail: unsalted SHA256 via hashPIN; fine for a 4-digit device-local PIN.
-export const setAppPin = async (pin: string) =>
-  SecureStore.setItemAsync(PIN_KEY, await hashPIN(pin));
+// On iOS the native lock owns the PIN (Keychain); elsewhere it stays in SecureStore.
+export const setAppPin = async (pin: string) => {
+  if (isAppLockAvailable()) {
+    setNativePin(pin);
+    return;
+  }
+  await SecureStore.setItemAsync(PIN_KEY, await hashPIN(pin));
+};
 
-export const clearAppPin = () => SecureStore.deleteItemAsync(PIN_KEY);
+export const clearAppPin = async () => {
+  if (isAppLockAvailable()) return clearNativePin();
+  await SecureStore.deleteItemAsync(PIN_KEY);
+};
 
 export const verifyAppPin = async (pin: string) =>
-  (await SecureStore.getItemAsync(PIN_KEY)) === (await hashPIN(pin));
+  isAppLockAvailable()
+    ? verifyNativePin(pin)
+    : (await SecureStore.getItemAsync(PIN_KEY)) === (await hashPIN(pin));
 
 /**
  * Lock again when the app spent at least `graceSeconds` in the background.

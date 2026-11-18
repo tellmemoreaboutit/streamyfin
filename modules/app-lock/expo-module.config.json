@@ -1,0 +1,9 @@
+{
+  "name": "app-lock",
+  "version": "1.0.0",
+  "platforms": ["ios"],
+  "ios": {
+    "modules": ["AppLockModule"],
+    "appDelegateSubscribers": ["AppLockAppDelegate"]
+  }
+}

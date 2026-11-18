@@ -4,6 +4,13 @@ import type { PersonKind } from "@jellyfin/sdk/lib/generated-client/models";
 export const SEARCH_RESULT_LIMIT = 10;
 
 /**
+ * Results per library section with the Jellyfin engine. The rows are
+ * virtualized, and a home-video library holds hundreds of near-identical
+ * names, so a wildcard or substring search must not stop at ten.
+ */
+export const SEARCH_LIBRARY_RESULT_LIMIT = 500;
+
+/**
  * How many people a search asks for before keeping the best matches. The
  * Persons API answers in name order at best, not by relevance, so the first
  * few of a short search are rarely the ones meant. Jellyfin Web asks for as

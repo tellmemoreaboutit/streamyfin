@@ -15,7 +15,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import * as BackgroundTask from "expo-background-task";
 import { Image } from "expo-image";
 import { Platform } from "react-native";
-import { AppLock } from "@/components/AppLock";
+import { AppLockHost } from "@/components/AppLock";
 import { GlobalModal } from "@/components/GlobalModal";
 import { OfflineProgressSync } from "@/components/OfflineProgressSync";
 import { PendingAccountSaveModal } from "@/components/PendingAccountSaveModal";
@@ -490,7 +490,7 @@ function Layout() {
                                         }}
                                         closeButton
                                       />
-                                      {!Platform.isTV && <AppLock />}
+                                      <AppLockHost />
                                       {!Platform.isTV && <GlobalModal />}
                                       {!Platform.isTV && (
                                         <PendingAccountSaveModal />

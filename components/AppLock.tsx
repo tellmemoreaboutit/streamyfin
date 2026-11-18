@@ -12,6 +12,11 @@ import {
 } from "react-native";
 import { Text } from "@/components/common/Text";
 import { PinInput } from "@/components/inputs/PinInput";
+import {
+  addNativeLockResetListener,
+  consumeNativeResetFlag,
+  isAppLockAvailable,
+} from "@/modules/app-lock";
 import { useJellyfin } from "@/providers/JellyfinProvider";
 import {
   clearAppPin,
@@ -206,3 +211,39 @@ export const AppLock = () => {
     </Modal>
   );
 };
+
+/**
+ * iOS: the native lock window does the locking; JS only finishes a "Forgot
+ * passcode?" reset (log out of every saved server), at startup or on the event.
+ */
+const NativeLockReset = () => {
+  const { settings, updateSettings } = useSettings();
+  const { logout } = useJellyfin();
+  const ready = !!settings;
+
+  useEffect(() => {
+    if (!ready) return;
+    const run = async () => {
+      if (!consumeNativeResetFlag()) return;
+      updateSettings({ appLockEnabled: false, appLockFaceId: false });
+      for (const s of getPreviousServers()) {
+        await removeServerFromList(s.address);
+      }
+      await logout();
+    };
+    run();
+    const sub = addNativeLockResetListener(run);
+    return () => sub?.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
+  return null;
+};
+
+/** Native lock on iOS, the JS Modal lock everywhere else (not TV). */
+export const AppLockHost = () =>
+  Platform.isTV ? null : isAppLockAvailable() ? (
+    <NativeLockReset />
+  ) : (
+    <AppLock />
+  );

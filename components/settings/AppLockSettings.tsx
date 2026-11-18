@@ -7,6 +7,11 @@ import { SettingSwitch } from "@/components/common/SettingSwitch";
 import { Text } from "@/components/common/Text";
 import { PinInput } from "@/components/inputs/PinInput";
 import {
+  configureNativeLock,
+  getNativeLockConfig,
+  isAppLockAvailable,
+} from "@/modules/app-lock";
+import {
   clearAppPin,
   PIN_LENGTH,
   setAppPin,
@@ -113,23 +118,52 @@ export const AppLockSettings = () => {
               : t("app_lock.minutes", { count: s / 60 }),
           value: String(s),
           selected: s === grace,
-          onPress: () => updateSettings({ appLockGraceSeconds: s }),
+          onPress: () => {
+            updateSettings({ appLockGraceSeconds: s });
+            const c = getNativeLockConfig();
+            if (c) configureNativeLock({ ...c, graceSeconds: s });
+          },
         })),
       },
     ],
     [grace, t, updateSettings],
   );
 
+  // The native config is the source of truth on iOS; keep the atom (UI) in step.
+  const nativeCfg =
+    settings && isAppLockAvailable() ? getNativeLockConfig() : null;
+  const synced = !!settings;
+  useEffect(() => {
+    if (!synced || !nativeCfg) return;
+    updateSettings({
+      appLockEnabled: nativeCfg.enabled,
+      appLockFaceId: nativeCfg.faceId,
+      appLockGraceSeconds: nativeCfg.graceSeconds,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [synced]);
+
   if (!settings) return null;
   const enabled = settings.appLockEnabled;
+
+  // Update the atom and, on iOS, the native lock.
+  const apply = (patch: Partial<typeof settings>) => {
+    updateSettings(patch);
+    const next = { ...settings, ...patch };
+    configureNativeLock({
+      enabled: next.appLockEnabled,
+      faceId: next.appLockFaceId,
+      graceSeconds: next.appLockGraceSeconds,
+    });
+  };
 
   const done = async (newPin?: string) => {
     if (flow === "disable") {
       await clearAppPin();
-      updateSettings({ appLockEnabled: false, appLockFaceId: false });
+      apply({ appLockEnabled: false, appLockFaceId: false });
     } else if (newPin) {
       await setAppPin(newPin);
-      if (flow === "enable") updateSettings({ appLockEnabled: true });
+      if (flow === "enable") apply({ appLockEnabled: true });
     }
     setFlow(null);
   };
@@ -154,7 +188,7 @@ export const AppLockSettings = () => {
           <ListItem title={t("app_lock.use_face_id")}>
             <SettingSwitch
               value={settings.appLockFaceId}
-              onValueChange={(v) => updateSettings({ appLockFaceId: v })}
+              onValueChange={(v) => apply({ appLockFaceId: v })}
             />
           </ListItem>
         )}

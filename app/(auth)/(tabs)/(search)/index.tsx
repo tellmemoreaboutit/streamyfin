@@ -54,6 +54,7 @@ import {
 } from "@/components/seerr/SeerrIndexPage";
 import {
   SEARCH_INDEX_STALE_TIME,
+  SEARCH_LIBRARY_RESULT_LIMIT,
   SEARCH_RESULT_LIMIT,
 } from "@/constants/Search";
 import useRouter from "@/hooks/useAppRouter";
@@ -198,7 +199,7 @@ export default function SearchPage() {
               index: nameIndex,
               types,
               query,
-              limit: SEARCH_RESULT_LIMIT,
+              limit: SEARCH_LIBRARY_RESULT_LIMIT,
             });
           }
           if (!serverQuery) {
@@ -207,7 +208,7 @@ export default function SearchPage() {
           const searchApi = await getLibraryApi(api).getItems(
             {
               searchTerm: serverQuery,
-              limit: SEARCH_RESULT_LIMIT,
+              limit: SEARCH_LIBRARY_RESULT_LIMIT,
               includeItemTypes: types,
               recursive: true,
               userId: user?.Id,
@@ -224,7 +225,7 @@ export default function SearchPage() {
                 index: nameIndex,
                 types,
                 query,
-                limit: SEARCH_RESULT_LIMIT,
+                limit: SEARCH_LIBRARY_RESULT_LIMIT,
               })
             : server;
         }
